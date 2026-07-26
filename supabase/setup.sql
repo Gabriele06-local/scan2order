@@ -349,6 +349,81 @@ begin
 end;
 $$;
 
+-- Staff insert policies (for staff placing orders on behalf of tables)
+drop policy if exists "staff insert orders" on orders;
+create policy "staff insert orders" on orders
+  for insert with check (
+    exists (select 1 from staff where staff.tenant_id = tenant_id and staff.auth_user_id = (select auth.uid()))
+  );
+
+drop policy if exists "staff insert order_items" on order_items;
+create policy "staff insert order_items" on order_items
+  for insert with check (
+    exists (select 1 from orders where orders.id = order_id)
+  );
+
+drop policy if exists "staff insert order_item_modifiers" on order_item_modifiers;
+create policy "staff insert order_item_modifiers" on order_item_modifiers
+  for insert with check (
+    exists (select 1 from order_items where order_items.id = order_item_id)
+  );
+
+-- Staff order RPC: creates orders directly as confirmed (skips waiter confirmation)
+create or replace function create_staff_order(
+  p_tenant_id uuid,
+  p_table_id uuid,
+  p_items jsonb
+) returns uuid
+  language plpgsql
+  security invoker
+  set search_path = 'public'
+as $$
+declare
+  v_order_id uuid;
+  v_total int := 0;
+  item jsonb;
+  v_order_item_id uuid;
+  mod jsonb;
+begin
+  insert into orders (tenant_id, table_id, status, total_cents)
+  values (p_tenant_id, p_table_id, 'confirmed', 0)
+  returning id into v_order_id;
+
+  for item in select * from jsonb_array_elements(p_items)
+  loop
+    insert into order_items (order_id, menu_item_id, quantity, notes, unit_price_cents)
+    values (
+      v_order_id,
+      (item->>'menu_item_id')::uuid,
+      (item->>'quantity')::int,
+      item->>'notes',
+      (item->>'unit_price_cents')::int
+    )
+    returning id into v_order_item_id;
+
+    v_total := v_total + ((item->>'quantity')::int * (item->>'unit_price_cents')::int);
+
+    if item ? 'modifiers' then
+      for mod in select * from jsonb_array_elements(item->'modifiers')
+      loop
+        insert into order_item_modifiers (order_item_id, modifier_id, name, price_cents)
+        values (
+          v_order_item_id,
+          (mod->>'id')::uuid,
+          mod->>'name',
+          (mod->>'price_cents')::int
+        );
+        v_total := v_total + ((item->>'quantity')::int * (mod->>'price_cents')::int);
+      end loop;
+    end if;
+  end loop;
+
+  update orders set total_cents = v_total where id = v_order_id;
+
+  return v_order_id;
+end;
+$$;
+
 -- 5. Seed data
 
 insert into tenants (id, slug, name, operating_hours) values

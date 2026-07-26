@@ -1,0 +1,19 @@
+---
+import Layout from '../../components/astro/Layout.astro';
+import StaffOrder from '../../components/svelte/StaffOrder.svelte';
+import LogoutButton from '../../components/svelte/LogoutButton.svelte';
+import Clock from '../../components/svelte/Clock.svelte';
+---
+
+<Layout>
+  <main class="max-w-lg mx-auto p-4 pb-32">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-xl font-bold">Ordina per un tavolo</h1>
+      <div class="flex items-center gap-4">
+        <Clock client:load />
+        <LogoutButton client:load />
+      </div>
+    </div>
+    <StaffOrder client:load />
+  </main>
+</Layout>
