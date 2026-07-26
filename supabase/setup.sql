@@ -375,7 +375,7 @@ create or replace function create_staff_order(
   p_items jsonb
 ) returns uuid
   language plpgsql
-  security invoker
+  security definer
   set search_path = 'public'
 as $$
 declare

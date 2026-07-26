@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { supabase } from '../../lib/supabase';
   import { transitionOrderStatus } from '../../lib/orders';
-  import OrderCard from './OrderCard.svelte';
 
   interface OrderRow {
     id: string;
@@ -10,6 +9,7 @@
     status: string;
     total_cents: number;
     created_at: string;
+    items: Array<{ name: string; quantity: number; notes?: string; modifiers?: string }>;
   }
 
   let orders: OrderRow[] = $state([]);
@@ -30,9 +30,23 @@
       .in('status', ['confirmed', 'in_kitchen'])
       .order('created_at', { ascending: true });
     if (error) { console.error(error); return; }
-    orders = (data ?? []).map((o: any) => ({
-      id: o.id, table_label: o.tables?.label ?? '?',
-      status: o.status, total_cents: o.total_cents, created_at: o.created_at,
+    orders = await Promise.all((data ?? []).map(async (o: any) => {
+      const { data: orderItems } = await supabase
+        .from('order_items')
+        .select('quantity, notes, menu_items(name), order_item_modifiers(name)')
+        .eq('order_id', o.id);
+      return {
+        id: o.id, table_label: o.tables?.label ?? '?',
+        status: o.status, total_cents: o.total_cents, created_at: o.created_at,
+        items: (orderItems ?? []).map((i: any) => ({
+          name: i.menu_items?.name ?? '?',
+          quantity: i.quantity,
+          notes: i.notes,
+          modifiers: i.order_item_modifiers?.length > 0
+            ? i.order_item_modifiers.map((m: any) => m.name).join(', ')
+            : undefined,
+        })),
+      };
     }));
   }
 
@@ -53,7 +67,8 @@
       .order{border-bottom:2px dashed #999;padding:12px 0;margin-bottom:12px}
       .order:last-child{border:0}
       .header{font-weight:bold;font-size:16px;margin-bottom:4px}
-      .item{margin:2px 0}
+      .item{margin:2px 0;padding-left:12px}
+      .mod{color:#666;font-size:12px;padding-left:24px}
       .time{color:#666;font-size:12px}
       @media print{body{padding:10px}.order{break-inside:avoid}}
     </style></head><body>
@@ -62,8 +77,11 @@
       <div class="order">
         <div class="header">Tavolo ${o.table_label}</div>
         <div class="time">${new Date(o.created_at).toLocaleString('it-IT')}</div>
-        <div class="item">Totale: ${(o.total_cents / 100).toFixed(2)}€</div>
-        <div class="item">Stato: ${o.status}</div>
+        ${o.items.map((i: any) => `
+          <div class="item">×${i.quantity} ${i.name}</div>
+          ${i.modifiers ? `<div class="mod">+ ${i.modifiers}</div>` : ''}
+          ${i.notes ? `<div class="mod">Note: ${i.notes}</div>` : ''}
+        `).join('')}
       </div>
     `).join('')}
     <script>window.print();window.close();<\/script>
@@ -81,6 +99,7 @@
     Stampa ordini
   </button>
 </div>
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
   <section class="bg-white rounded-2xl border border-blue-200 p-5 shadow-sm">
     <div class="flex items-center gap-2 mb-4">
@@ -93,7 +112,32 @@
     {:else}
       <div class="space-y-3">
         {#each confirmedOrders as o (o.id)}
-          <OrderCard order={o} actions={[{ label: 'In preparazione', status: 'in_kitchen', action: () => startCooking(o.id) }]} />
+          <div class="rounded-xl border-2 border-blue-100 bg-blue-50 p-4 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-lg font-bold text-gray-900">Tavolo {o.table_label}</span>
+                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <button onclick={() => startCooking(o.id)}
+                class="text-sm font-semibold px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-all shadow-sm">
+                In preparazione
+              </button>
+            </div>
+            <div class="space-y-1 mb-2">
+              {#each o.items as item}
+                <div class="text-sm text-gray-700">
+                  <span class="font-medium">×{item.quantity}</span> {item.name}
+                  {#if item.modifiers}
+                    <span class="text-xs text-gray-400 ml-2">+{item.modifiers}</span>
+                  {/if}
+                  {#if item.notes}
+                    <p class="text-xs text-gray-400 ml-4">Note: {item.notes}</p>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+            <div class="text-sm font-medium text-gray-600">{(o.total_cents / 100).toFixed(2)}€</div>
+          </div>
         {/each}
       </div>
     {/if}
@@ -110,7 +154,32 @@
     {:else}
       <div class="space-y-3">
         {#each cookingOrders as o (o.id)}
-          <OrderCard order={o} actions={[{ label: 'Pronto', status: 'ready', action: () => markReady(o.id) }]} />
+          <div class="rounded-xl border-2 border-indigo-100 bg-indigo-50 p-4 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-lg font-bold text-gray-900">Tavolo {o.table_label}</span>
+                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <button onclick={() => markReady(o.id)}
+                class="text-sm font-semibold px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-sm">
+                Pronto
+              </button>
+            </div>
+            <div class="space-y-1 mb-2">
+              {#each o.items as item}
+                <div class="text-sm text-gray-700">
+                  <span class="font-medium">×{item.quantity}</span> {item.name}
+                  {#if item.modifiers}
+                    <span class="text-xs text-gray-400 ml-2">+{item.modifiers}</span>
+                  {/if}
+                  {#if item.notes}
+                    <p class="text-xs text-gray-400 ml-4">Note: {item.notes}</p>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+            <div class="text-sm font-medium text-gray-600">{(o.total_cents / 100).toFixed(2)}€</div>
+          </div>
         {/each}
       </div>
     {/if}
