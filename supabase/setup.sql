@@ -242,7 +242,7 @@ create or replace function transition_order_status(
   p_actor_role text default null
 ) returns void
   language plpgsql
-  security definer
+  security invoker
   set search_path = 'public'
 as $$
 declare
@@ -299,7 +299,7 @@ create or replace function create_order(
   p_items jsonb
 ) returns uuid
   language plpgsql
-  security definer
+  security invoker
   set search_path = 'public'
 as $$
 declare
