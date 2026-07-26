@@ -12,7 +12,10 @@ import Clock from '../../components/svelte/Clock.svelte';
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold">Amministrazione</h1>
       <div class="flex items-center gap-4">
-        <a href="/staff/ordina" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Ordina per tavolo</a>
+        <a href="/staff/ordina" class="text-sm font-bold bg-emerald-600 text-white rounded-xl px-4 py-2 hover:bg-emerald-700 active:scale-[0.97] transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg>
+          Ordina
+        </a>
         <Clock client:load />
         <LogoutButton client:load />
       </div>
