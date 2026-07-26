@@ -1,0 +1,14 @@
+name: Reset Demo
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reset endpoint
+        run: |
+          curl -s "https://scan2order-alpha.vercel.app/api/reset-demo?secret=${{ secrets.RESET_SECRET }}"

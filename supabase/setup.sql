@@ -302,7 +302,7 @@ create or replace function create_order(
   p_items jsonb
 ) returns uuid
   language plpgsql
-  security invoker
+  security definer
   set search_path = 'public'
 as $$
 declare
@@ -311,7 +311,17 @@ declare
   item jsonb;
   v_order_item_id uuid;
   mod jsonb;
+  v_recent_count int;
 begin
+  -- Rate limit: max 5 orders per table per 10 minutes
+  select count(*) into v_recent_count
+  from orders
+  where table_id = p_table_id
+    and created_at > now() - interval '10 minutes';
+  if v_recent_count >= 5 then
+    raise exception 'Troppi ordini da questo tavolo. Attendi qualche minuto.';
+  end if;
+
   insert into orders (tenant_id, table_id, status, total_cents)
   values (p_tenant_id, p_table_id, 'submitted', 0)
   returning id into v_order_id;
