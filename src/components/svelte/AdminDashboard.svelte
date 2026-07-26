@@ -189,11 +189,15 @@
       </h2>
     </div>
     <div class="space-y-3">
-      <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Nome ristorante</label>
-      <input bind:value={tenantName} placeholder="es. Ristorante Gabriele" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
-      <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Slug (parte dell'URL)</label>
-      <input bind:value={tenantSlug} placeholder="es. ristorante-gabriele" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono text-xs" />
-      <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Orari apertura</label>
+      <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide block">
+        Nome ristorante
+        <input bind:value={tenantName} placeholder="es. Ristorante Gabriele" class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-normal not-italic text-gray-900" />
+      </label>
+      <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide block">
+        Slug (parte dell'URL)
+        <input bind:value={tenantSlug} placeholder="es. ristorante-gabriele" class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono text-xs font-normal not-italic text-gray-900" />
+      </label>
+      <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide block">Orari apertura</span>
       <div class="space-y-2">
         {#each days as day}
           <div class="flex items-center gap-2">
