@@ -177,11 +177,21 @@ create policy "staff delete tables" on tables
 -- Orders: insert allowed for anon with valid table
 drop policy if exists "orders anon insert" on orders;
 create policy "orders anon insert" on orders
-  for insert with check (true);
+  for insert with check (
+    exists (select 1 from tables where tables.id = table_id and tables.tenant_id = tenant_id)
+  );
 
 drop policy if exists "order_items anon insert" on order_items;
 create policy "order_items anon insert" on order_items
-  for insert with check (true);
+  for insert with check (
+    exists (select 1 from orders where orders.id = order_id)
+  );
+
+drop policy if exists "order_item_modifiers anon insert" on order_item_modifiers;
+create policy "order_item_modifiers anon insert" on order_item_modifiers
+  for insert with check (
+    exists (select 1 from order_items where order_items.id = order_item_id)
+  );
 
 -- Modifiers: public select, staff CRUD
 drop policy if exists "item_modifiers public select" on item_modifiers;
@@ -362,6 +372,17 @@ insert into menu_items (id, category_id, tenant_id, name, description, price_cen
   ('a0000000-0000-0000-0000-000000000004', 'c0000000-0000-0000-0000-000000000002', 'd0000000-0000-0000-0000-000000000001', 'Acqua Naturale', '50cl', 250, 0, null),
   ('a0000000-0000-0000-0000-000000000005', 'c0000000-0000-0000-0000-000000000002', 'd0000000-0000-0000-0000-000000000001', 'Coca Cola', '33cl', 350, 140, null)
 on conflict (id) do nothing;
+
+-- Cleanup old/named policies (from earlier migrations)
+drop policy if exists "menu_categories are public for tenant" on menu_categories;
+drop policy if exists "menu_items are public for tenant" on menu_items;
+drop policy if exists "orders insert with valid qr_token" on orders;
+drop policy if exists "staff can read orders for their tenant" on orders;
+drop policy if exists "staff can update orders for their tenant" on orders;
+drop policy if exists "order_items insert with valid order" on order_items;
+
+-- Revoke EXECUTE on transition_order_status from anon (only staff should call it)
+revoke execute on function public.transition_order_status from anon;
 
 -- 6. Demo staff accounts
 -- Crea gli utenti auth su Supabase Dashboard -> Authentication -> Users:
