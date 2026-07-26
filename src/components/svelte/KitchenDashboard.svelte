@@ -4,15 +4,34 @@
   import { transitionOrderStatus } from '../../lib/orders';
 
   interface OrderRow {
-    id: string;
-    table_label: string;
-    status: string;
-    total_cents: number;
-    created_at: string;
+    id: string; table_label: string; status: string;
+    total_cents: number; created_at: string;
     items: Array<{ name: string; quantity: number; notes?: string; modifiers?: string }>;
   }
 
   let orders: OrderRow[] = $state([]);
+  let prevConfirmed = 0;
+
+  function notify() {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 600; osc.type = 'triangle';
+      gain.gain.value = 0.4;
+      osc.start(); osc.stop(ctx.currentTime + 0.12);
+      setTimeout(() => {
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc2.frequency.value = 900; osc2.type = 'triangle';
+        gain2.gain.value = 0.4;
+        osc2.start(); osc2.stop(ctx.currentTime + 0.2);
+      }, 150);
+    } catch {}
+    try { navigator.vibrate?.(300); } catch {}
+  }
 
   onMount(() => {
     loadOrders();
@@ -30,6 +49,20 @@
       .in('status', ['confirmed', 'in_kitchen'])
       .order('created_at', { ascending: true });
     if (error) { console.error(error); return; }
+    const confirmedNow = (data ?? []).filter((o: any) => o.status === 'confirmed').length;
+    if (confirmedNow > prevConfirmed && prevConfirmed > 0) notify();
+    prevConfirmed = confirmedNow;
+    document.title = confirmedNow > 0 ? `(${confirmedNow}) QR Menu` : 'QR Menu';
+    let bdg = document.getElementById('kitchen-badge');
+    if (!bdg && confirmedNow > 0) {
+      bdg = document.createElement('div');
+      bdg.id = 'kitchen-badge';
+      bdg.style.cssText = 'position:fixed;top:0;right:0;background:red;color:white;font-size:10px;padding:2px 6px;border-radius:999px;z-index:9999;font-family:sans-serif';
+      document.body.appendChild(bdg);
+    }
+    if (bdg) bdg.textContent = confirmedNow > 0 ? String(confirmedNow) : '';
+    if (bdg && confirmedNow === 0) bdg.remove();
+
     orders = await Promise.all((data ?? []).map(async (o: any) => {
       const { data: orderItems } = await supabase
         .from('order_items')
@@ -39,12 +72,10 @@
         id: o.id, table_label: o.tables?.label ?? '?',
         status: o.status, total_cents: o.total_cents, created_at: o.created_at,
         items: (orderItems ?? []).map((i: any) => ({
-          name: i.menu_items?.name ?? '?',
-          quantity: i.quantity,
+          name: i.menu_items?.name ?? '?', quantity: i.quantity,
           notes: i.notes,
           modifiers: i.order_item_modifiers?.length > 0
-            ? i.order_item_modifiers.map((m: any) => m.name).join(', ')
-            : undefined,
+            ? i.order_item_modifiers.map((m: any) => m.name).join(', ') : undefined,
         })),
       };
     }));

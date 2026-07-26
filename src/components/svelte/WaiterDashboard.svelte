@@ -13,6 +13,30 @@
   }
 
   let orders: OrderRow[] = $state([]);
+  let prevCount = 0;
+
+  function notify() {
+    // Sound
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 800; osc.type = 'sine';
+      gain.gain.value = 0.3;
+      osc.start(); osc.stop(ctx.currentTime + 0.15);
+      setTimeout(() => {
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc2.frequency.value = 1000; osc2.type = 'sine';
+        gain2.gain.value = 0.3;
+        osc2.start(); osc2.stop(ctx.currentTime + 0.2);
+      }, 200);
+    } catch {}
+    // Vibration
+    try { navigator.vibrate?.(200); } catch {}
+  }
 
   onMount(() => {
     loadOrders();
@@ -30,6 +54,22 @@
       .in('status', ['submitted', 'pending_waiter_review', 'ready'])
       .order('created_at', { ascending: false });
     if (error) { console.error(error); return; }
+    const pendingNow = (data ?? []).filter((o: any) => o.status === 'submitted' || o.status === 'pending_waiter_review').length;
+    if (pendingNow > prevCount && prevCount > 0) notify();
+    prevCount = pendingNow;
+    // Badge title
+    document.title = pendingNow > 0 ? `(${pendingNow}) QR Menu` : 'QR Menu';
+    // Favicon badge
+    let bdg = document.getElementById('order-badge');
+    if (!bdg && pendingNow > 0) {
+      bdg = document.createElement('div');
+      bdg.id = 'order-badge';
+      bdg.style.cssText = 'position:fixed;top:0;right:0;background:red;color:white;font-size:10px;padding:2px 6px;border-radius:999px;z-index:9999;font-family:sans-serif';
+      document.body.appendChild(bdg);
+    }
+    if (bdg) bdg.textContent = pendingNow > 0 ? String(pendingNow) : '';
+    if (bdg && pendingNow === 0) bdg.remove();
+
     orders = await Promise.all((data ?? []).map(async (o: any) => {
       const { data: items } = await supabase
         .from('order_items')
