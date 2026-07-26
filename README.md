@@ -43,47 +43,43 @@ I menu cartacei costano, si sporcano, e vanno ristampati ogni volta che cambi un
 
 ## Funzionalità
 
-### Cliente (il menu digitale)
+### Cliente
 
-- **Navigazione per categorie** — Piatti organizzati in sezioni (Antipasti, Primi, Pizze, Bevande...)
-- **Dettagli completi** — Nome, descrizione, prezzo, foto, calorie (kcal) e allergeni per ogni piatto
-- **Foto dei piatti** — Basta un URL immagine nell'admin e compare direttamente nel menu
-- **Extra e modifiche** — Mozzarella extra, aggiunta di ingredienti, scelta della taglia — ogni modifica può avere un sovrapprezzo
-- **Note personalizzate** — "Senza cipolla", "Ben cotta", "Olive in più" — ogni piatto nel carrello ha un campo note
-- **Carrello intelligente** — Aumenta/diminuisci quantità, rimuovi piatti, vedi il totale sempre aggiornato
-- **Riepilogo prima dell'invio** — Il carrello mostra tutti i piatti con quantità, extra selezionati, note, e il totale
-- **Conferma di invio** — Dopo l'ordine compare un messaggio di successo, il carrello si svuota, e si può continuare a ordinare
-- **Storico ordini** — Se abilitato dall'admin, mostra l'elenco degli ordini precedenti per il tavolo (utile per ricordarsi cosa si è preso)
-- **Orari di apertura** — Se il ristorante è chiuso, il menu lo mostra e blocca l'invio di nuovi ordini
-- **Stato ordine in tempo reale** — (opzionale) il cliente può vedere se l'ordine è stato preso in carico, in preparazione o pronto
+- **Menu digitale** — Categorie, foto, descrizioni, prezzi, calorie, allergeni
+- **Extra e note** — Personalizza ogni piatto con modifiche e note
+- **Carrello** — Riepilogo prima dell'invio, modifica quantità, rimuovi
+- **Orari apertura** — Se il ristorante è chiuso, blocca l'ordine
+- **PWA** — Il menu funziona anche con rete lenta o assente
+- **Coda offline** — Se non c'è connessione, l'ordine viene accodato e inviato quando si torna online
+
+### Staff (cameriere, cucina, admin)
+
+- **Ordina per i tavoli** — Lo staff può aprire il menu e ordinare per conto dei clienti
+- **Tutti i dettagli** — Ogni card ordine mostra i piatti con quantità, extra e note
+- **Notifiche smart** — Suono + vibrazione + badge rosso + titolo scheda quando arriva un ordine
+- **Realtime** — Le dashboard si aggiornano in tempo reale senza refresh
 
 ### Cameriere
 
-- **Dashboard in tempo reale** — Gli ordini arrivano istantaneamente senza ricaricare la pagina (Supabase Realtime)
-- **Due colonne: da confermare / da servire** — Ordini appena arrivati e ordini pronti da portare al tavolo
-- **Conferma ordine** — Se il ristorante ha la conferma cameriere obbligatoria, l'ordine passa da "inviato" a "in attesa di conferma" a "confermato"
-- **Servito** — Un click per segnare che l'ordine è stato portato al tavolo
+- **Conferma ordini** — Vedi chi ha ordinato cosa, conferma o segna come servito
+- **Colonne** — Da confermare / Da servire
 
 ### Cucina
 
-- **Dashboard in tempo reale** — Nuovi ordini confermati compaiono immediatamente
-- **Due colonne: nuovi / in preparazione** — Accoda e gestisci il flusso di lavoro
-- **Prepara e pronto** — Dal confermato all'in-preparazione al pronto
-- **Stampa ordini** — Un pulsante che apre una finestra di stampa ottimizzata per la cucina (comanda chiara, formato carta)
+- **Prepara e pronto** — Gestisci il flusso: confermato → in preparazione → pronto
+- **Stampa ordini** — Comanda stampabile con piatti, extra e note
 
 ### Admin
 
-- **Tutto in una pagina** — Ristorante, categorie, piatti, extra, tavoli, staff, orari e impostazioni
-- **Nome e slug del ristorante** — Il nome appare nel menu cliente, lo slug è l'URL (es. `/mio-ristorante?table=1`)
-- **Orari di apertura** — Editor visuale giorno per giorno, fasce orarie multiple (es. pranzo 12:00-15:00, cena 19:00-23:00), attiva/disattiva con un click
-- **Categorie** — Aggiungi, modifica, elimina con un click (es. "Pizze", "Bevande", "Dolci")
-- **Piatti** — Nome, descrizione, prezzo, foto (URL), kcal, allergeni, disponibile/nascosto
-- **Extra / Modifiche** — Associa a ogni piatto degli extra con sovrapprezzo (es. Mozzarella extra +2.00€)
-- **Tavoli** — Aggiungi, modifica nome, copia il link QR da stampare
-- **Staff** — Invita nuovi membri (admin, cameriere, cucina), cambia ruolo, elimina
-- **Statistiche in tempo reale** — Ordini oggi, in attesa, incasso odierno — si aggiornano da soli
-- **Mostra/nascondi storico ordini** — Decidi tu se i clienti possono vedere gli ordini passati
-- **Conferma cameriere obbligatoria** — Attiva se vuoi che un cameriere riveda l'ordine prima che arrivi in cucina
+- **Ristorante** — Nome, slug URL, orari apertura (editor visuale giorno per giorno)
+- **Categorie e Piatti** — CRUD completo, foto, kcal, allergeni, disponibilità
+- **Personalizzazioni** — Extra con sovrapprezzo per ogni piatto
+- **Tavoli** — Aggiungi, modifica, copia link QR
+- **Personale** — Aggiungi membri (admin, cameriere, cucina), cambia ruolo, elimina
+- **Statistiche** — Ordini oggi, in attesa, incasso (in tempo reale)
+- **Esporta / Importa Menu** — Scarica il menu come JSON o caricalo per sostituirlo
+- **Conferma cameriere** — Attiva/disattiva
+- **Storico ordini** — Mostra/nascondi ai clienti
 
 ---
 
@@ -373,6 +369,7 @@ pnpm run preview      # Anteprima build locale
 pnpm run test         # Test unitari (Vitest)
 pnpm run lint         # Lint (ESLint)
 pnpm run test:e2e     # Test E2E (Playwright)
+node scripts/setup.mjs # Setup automatico Supabase + account demo
 ```
 
 ### Test
