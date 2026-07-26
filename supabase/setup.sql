@@ -137,42 +137,42 @@ create policy "menu_items public select" on menu_items
 
 drop policy if exists "staff select own" on staff;
 create policy "staff select own" on staff
-  for select using (auth.uid() = auth_user_id);
+  for select using ((select auth.uid()) = auth_user_id);
 
 drop policy if exists "staff update tenant" on tenants;
 create policy "staff update tenant" on tenants
-  for update using (exists (select 1 from staff where staff.tenant_id = tenants.id and staff.auth_user_id = auth.uid()));
+  for update using (exists (select 1 from staff where staff.tenant_id = tenants.id and staff.auth_user_id = (select auth.uid())));
 
 -- Staff CRUD policies for menu & tables
 drop policy if exists "staff insert menu_categories" on menu_categories;
 create policy "staff insert menu_categories" on menu_categories
-  for insert with check (exists (select 1 from staff where staff.tenant_id = menu_categories.tenant_id and staff.auth_user_id = auth.uid()));
+  for insert with check (exists (select 1 from staff where staff.tenant_id = menu_categories.tenant_id and staff.auth_user_id = (select auth.uid())));
 drop policy if exists "staff update menu_categories" on menu_categories;
 create policy "staff update menu_categories" on menu_categories
-  for update using (exists (select 1 from staff where staff.tenant_id = menu_categories.tenant_id and staff.auth_user_id = auth.uid()));
+  for update using (exists (select 1 from staff where staff.tenant_id = menu_categories.tenant_id and staff.auth_user_id = (select auth.uid())));
 drop policy if exists "staff delete menu_categories" on menu_categories;
 create policy "staff delete menu_categories" on menu_categories
-  for delete using (exists (select 1 from staff where staff.tenant_id = menu_categories.tenant_id and staff.auth_user_id = auth.uid()));
+  for delete using (exists (select 1 from staff where staff.tenant_id = menu_categories.tenant_id and staff.auth_user_id = (select auth.uid())));
 
 drop policy if exists "staff insert menu_items" on menu_items;
 create policy "staff insert menu_items" on menu_items
-  for insert with check (exists (select 1 from staff where staff.tenant_id = menu_items.tenant_id and staff.auth_user_id = auth.uid()));
+  for insert with check (exists (select 1 from staff where staff.tenant_id = menu_items.tenant_id and staff.auth_user_id = (select auth.uid())));
 drop policy if exists "staff update menu_items" on menu_items;
 create policy "staff update menu_items" on menu_items
-  for update using (exists (select 1 from staff where staff.tenant_id = menu_items.tenant_id and staff.auth_user_id = auth.uid()));
+  for update using (exists (select 1 from staff where staff.tenant_id = menu_items.tenant_id and staff.auth_user_id = (select auth.uid())));
 drop policy if exists "staff delete menu_items" on menu_items;
 create policy "staff delete menu_items" on menu_items
-  for delete using (exists (select 1 from staff where staff.tenant_id = menu_items.tenant_id and staff.auth_user_id = auth.uid()));
+  for delete using (exists (select 1 from staff where staff.tenant_id = menu_items.tenant_id and staff.auth_user_id = (select auth.uid())));
 
 drop policy if exists "staff insert tables" on tables;
 create policy "staff insert tables" on tables
-  for insert with check (exists (select 1 from staff where staff.tenant_id = tables.tenant_id and staff.auth_user_id = auth.uid()));
+  for insert with check (exists (select 1 from staff where staff.tenant_id = tables.tenant_id and staff.auth_user_id = (select auth.uid())));
 drop policy if exists "staff update tables" on tables;
 create policy "staff update tables" on tables
-  for update using (exists (select 1 from staff where staff.tenant_id = tables.tenant_id and staff.auth_user_id = auth.uid()));
+  for update using (exists (select 1 from staff where staff.tenant_id = tables.tenant_id and staff.auth_user_id = (select auth.uid())));
 drop policy if exists "staff delete tables" on tables;
 create policy "staff delete tables" on tables
-  for delete using (exists (select 1 from staff where staff.tenant_id = tables.tenant_id and staff.auth_user_id = auth.uid()));
+  for delete using (exists (select 1 from staff where staff.tenant_id = tables.tenant_id and staff.auth_user_id = (select auth.uid())));
 
 -- Orders: insert allowed for anon with valid table
 drop policy if exists "orders anon insert" on orders;
@@ -190,13 +190,13 @@ create policy "item_modifiers public select" on item_modifiers
 
 drop policy if exists "staff insert item_modifiers" on item_modifiers;
 create policy "staff insert item_modifiers" on item_modifiers
-  for insert with check (exists (select 1 from staff where staff.tenant_id = item_modifiers.tenant_id and staff.auth_user_id = auth.uid()));
+  for insert with check (exists (select 1 from staff where staff.tenant_id = item_modifiers.tenant_id and staff.auth_user_id = (select auth.uid())));
 drop policy if exists "staff update item_modifiers" on item_modifiers;
 create policy "staff update item_modifiers" on item_modifiers
-  for update using (exists (select 1 from staff where staff.tenant_id = item_modifiers.tenant_id and staff.auth_user_id = auth.uid()));
+  for update using (exists (select 1 from staff where staff.tenant_id = item_modifiers.tenant_id and staff.auth_user_id = (select auth.uid())));
 drop policy if exists "staff delete item_modifiers" on item_modifiers;
 create policy "staff delete item_modifiers" on item_modifiers
-  for delete using (exists (select 1 from staff where staff.tenant_id = item_modifiers.tenant_id and staff.auth_user_id = auth.uid()));
+  for delete using (exists (select 1 from staff where staff.tenant_id = item_modifiers.tenant_id and staff.auth_user_id = (select auth.uid())));
 
 -- Order item modifiers: anon insert for customer orders
 drop policy if exists "order_item_modifiers anon insert" on order_item_modifiers;
@@ -210,7 +210,7 @@ create policy "staff select orders" on orders
     exists (
       select 1 from staff
       where staff.tenant_id = orders.tenant_id
-      and staff.auth_user_id = auth.uid()
+      and staff.auth_user_id = (select auth.uid())
     )
   );
 
@@ -220,7 +220,7 @@ create policy "staff update orders" on orders
     exists (
       select 1 from staff
       where staff.tenant_id = orders.tenant_id
-      and staff.auth_user_id = auth.uid()
+      and staff.auth_user_id = (select auth.uid())
     )
   );
 
@@ -228,11 +228,15 @@ create policy "staff update orders" on orders
 
 create or replace function transition_order_status(
   p_order_id uuid,
-  p_new_status order_status,
+  p_new_status public.order_status,
   p_actor_role text default null
-) returns void as $$
+) returns void
+  language plpgsql
+  security definer
+  set search_path = 'public'
+as $$
 declare
-  v_current_status order_status;
+  v_current_status public.order_status;
   v_tenant_id uuid;
   v_waiter_confirmed boolean;
 begin
@@ -277,13 +281,17 @@ begin
   update orders set status = p_new_status, updated_at = now()
   where id = p_order_id;
 end;
-$$ language plpgsql security definer;
+$$;
 
 create or replace function create_order(
   p_tenant_id uuid,
   p_table_id uuid,
   p_items jsonb
-) returns uuid as $$
+) returns uuid
+  language plpgsql
+  security definer
+  set search_path = 'public'
+as $$
 declare
   v_order_id uuid;
   v_total int := 0;
@@ -329,7 +337,7 @@ begin
 
   return v_order_id;
 end;
-$$ language plpgsql security definer;
+$$;
 
 -- 5. Seed data
 
