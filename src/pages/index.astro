@@ -1,3 +1,9 @@
 ---
-return Astro.redirect('/demo?table=demo-tavolo-1');
+import { supabase } from '../lib/supabase';
+
+const { data: tenants } = await supabase.from('tenants').select('slug').limit(1);
+const slug = tenants?.[0]?.slug || 'demo';
+const { data: tables } = await supabase.from('tables').select('qr_token').limit(1);
+const token = tables?.[0]?.qr_token || 'demo-tavolo-1';
+return Astro.redirect(`/${slug}?table=${token}`);
 ---
