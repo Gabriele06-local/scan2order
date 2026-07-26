@@ -71,12 +71,12 @@
 
 <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
   <div class="flex items-center justify-between mb-4">
-    <h2 class="font-bold text-gray-800 flex items-center gap-2">
-      <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
-      Staff
-    </h2>
+      <h2 class="font-bold text-gray-800 flex items-center gap-2">
+        <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
+        Personale
+      </h2>
     <button onclick={() => showInvite = !showInvite} class="text-sm font-medium text-blue-600 hover:text-blue-800">
-      {showInvite ? 'Annulla' : '+ Invita'}
+      {showInvite ? 'Annulla' : '+ Aggiungi'}
     </button>
   </div>
 
@@ -99,7 +99,7 @@
         <option value="admin">Admin</option>
       </select>
       {#if error}<p class="text-red-600 text-sm">{error}</p>{/if}
-      <button onclick={invite} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">Invita e crea account</button>
+      <button onclick={invite} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">Aggiungi e crea account</button>
     </div>
   {/if}
 
@@ -109,7 +109,7 @@
   {#if loading}
     <p class="text-gray-400 text-sm text-center py-8">Caricamento...</p>
   {:else if members.length === 0}
-    <p class="text-gray-400 text-sm text-center py-8">Nessun membro staff.</p>
+    <p class="text-gray-400 text-sm text-center py-8">Nessun membro del personale.</p>
   {:else}
     <div class="space-y-1">
       {#each members as m (m.id)}

@@ -1,15 +1,17 @@
-# QR Menu — Ordina dal tavolo con il tuo smartphone
+# scan2order — QR Menu per ristoranti
 
-Un sistema di ordinazione via QR code pensato per ristoranti, pizzerie, bar e locali che vogliono digitalizzare il menu e la gestione degli ordini senza costi di abbonamento. I clienti inquadrano il QR stampato sul tavolo, visualizzano il menu interattivo con foto, allergeni e calorie, personalizzano ogni piatto con extra e note, e inviano l'ordine direttamente in cucina in tempo reale.
+**I clienti inquadrano il QR sul tavolo e ordinano dal telefono. Zero carta, zero app.**
 
-**Perché esiste?** I menu cartacei sono costosi da stampare, si sporcano, si rovinano e vanno ristampati ogni volta che cambi un prezzo o un piatto. Con QR Menu aggiorni tutto in tempo reale dall'admin: prezzi, disponibilità, foto, descrizioni, orari, extra. Zero carta, zero costi fissi.
+Piatti con foto, calorie e allergeni. Extra e note per ogni ordine. Le comande arrivano in tempo reale in cucina e al cameriere. Tutto gratis, open source.
 
-**Per chi è?** Ristoratori, pizzaioli, gestori di locali, sviluppatori che vogliono un sistema moderno senza canoni mensili. Lo stack è open source (Astro 4 + Svelte 5 + Tailwind CSS + Supabase), hostato su Vercel (gratuito) con database su Supabase (gratuito).
+```
+Cliente → QR → Menu → Ordine → Cameriere conferma → Cucina prepara → Servito
+```
 
 ## Demo live
 
-**Menu cliente:** https://scan2order-o6z3vpo9r-gabrieles-projects-e9de886d.vercel.app
-**Staff login:** https://scan2order-o6z3vpo9r-gabrieles-projects-e9de886d.vercel.app/staff/login
+**Menu:** https://scan2order-o6z3vpo9r-gabrieles-projects-e9de886d.vercel.app
+**Staff:** https://scan2order-o6z3vpo9r-gabrieles-projects-e9de886d.vercel.app/staff/login
 
 | Ruolo | Email | Password |
 |---|---|---|
@@ -17,7 +19,25 @@ Un sistema di ordinazione via QR code pensato per ristoranti, pizzerie, bar e lo
 | Cameriere | `cameriere@demo.it` | `demo1234` |
 | Cucina | `cucina@demo.it` | `demo1234` |
 
-Apri il link principale per vedere il menu del "Ristorante Demo" dal Tavolo 1. Aggiungi piatti al carrello, scrivi note, seleziona extra e invia l'ordine. Poi accedi come cameriere per confermarlo, vai in cucina per prepararlo, e infine segna come servito.
+## Setup in 2 minuti
+
+```bash
+git clone https://github.com/Gabriele06-local/scan2order.git
+cd qr-menu
+node scripts/setup.mjs   # ← ti guida passo passo
+pnpm run dev
+```
+
+> Serve solo un progetto Supabase gratuito (lo crei in 1 minuto su supabase.com).
+
+## Perché esiste
+
+I menu cartacei costano, si sporcano, e vanno ristampati ogni volta che cambi un prezzo. Scan2order è gratuito, si aggiorna in tempo reale dall'admin (prezzi, foto, extra, orari), e funziona su qualsiasi telefono senza installare nulla.
+
+## Per chi è
+
+- **Ristoratori, pizzaioli, bar** — nessun canone mensile, niente abbonamento
+- **Sviluppatori** — stack moderno (Astro + Svelte + Supabase), pronto per self-hosting o deploy su Vercel
 
 ---
 
@@ -227,83 +247,60 @@ Tutte le tabelle hanno policy RLS. Esempi:
 
 ---
 
-## Setup
+## Setup rapido (2 minuti)
 
 ### 1. Prerequisiti
 
 - Node.js 18+
-- pnpm (npm install -g pnpm)
-- Un account Supabase (gratuito su [supabase.com](https://supabase.com))
-- Un account Vercel (gratuito su [vercel.com](https://vercel.com))
+- pnpm (`npm install -g pnpm`)
+- Un progetto Supabase (gratuito su [supabase.com](https://supabase.com))
 
-### 2. Clona e installa
+### 2. Setup automatico
 
 ```bash
 git clone https://github.com/Gabriele06-local/scan2order.git
 cd qr-menu
-pnpm install
+node scripts/setup.mjs
 ```
 
-### 3. Crea il database Supabase
+Lo script ti chiederà le chiavi del tuo progetto Supabase e farà tutto automaticamente:
 
-1. Vai su [supabase.com](https://supabase.com) → **New project**
-2. Scegli un nome, una password sicura e una regione vicina a te
-3. Attendi il provisioning (~2 minuti)
-4. Vai in **Project Settings → API** e copia:
-   - `Project URL` (es. `https://xxx.supabase.co`)
-   - `anon public key` (inizia con `eyJ...`)
-   - `service_role key` (inizia con `eyJ...` — tenila segreta, usata solo lato server)
-5. Vai in **SQL Editor**, incolla tutto il contenuto di `supabase/setup.sql` ed esegui
+1. Crea il file `.env` con le tue chiavi
+2. Installa le dipendenze (`pnpm install`)
+3. Esegue `setup.sql` sul database
+4. Crea 3 account staff demo con password `demo1234`
 
-### 4. Configura .env
-
-```bash
-cp .env.example .env
-```
-
-Modifica `.env` con i dati del tuo progetto Supabase:
-
-```env
-PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-PUBLIC_SUPABASE_KEY=eyJhbGciOiJIUzI1NiIs...   # anon public key
-PRIVATE_SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIs...  # service_role key
-```
-
-### 5. Crea gli account staff (obbligatorio)
-
-Devi creare gli utenti auth su Supabase prima di poter accedere allo staff.
-
-**Opzione A — Via Dashboard Supabase:**
-1. Vai in **Authentication → Users → Add User**
-2. Crea almeno un admin con email e password
-3. Annota lo UUID generato
-4. Esegui in SQL Editor: `insert into staff (tenant_id, auth_user_id, role) values ('d0000000-0000-0000-0000-000000000001', '<uuid>', 'admin');`
-
-**Opzione B — Via API (più veloce):**
-```bash
-# Crea l'utente auth
-curl -X POST https://<project>.supabase.co/auth/v1/admin/users \
-  -H "apikey: <service_role_key>" \
-  -H "Authorization: Bearer <service_role_key>" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@mio.it","password":"miapassword","email_confirm":true}'
-
-# Lo aggiunge allo staff
-curl -X POST https://<project>.supabase.co/rest/v1/staff \
-  -H "apikey: <service_role_key>" \
-  -H "Authorization: Bearer <service_role_key>" \
-  -H "Content-Type: application/json" \
-  -d '{"tenant_id":"d0000000-0000-0000-0000-000000000001","auth_user_id":"<uuid_da_sopra>","role":"admin"}'
-```
-
-### 6. Avvia in sviluppo
+### 3. Avvia
 
 ```bash
 pnpm run dev
 ```
 
-Apri `http://localhost:4321` — vedrai il menu demo.
+Apri `http://localhost:4321` — vedrai il menu del tuo ristorante dal Tavolo 1.
 Vai su `http://localhost:4321/staff/login` per accedere alle dashboard.
+
+### 4. Staff demo
+
+| Ruolo | Email | Password |
+|---|---|---|
+| Amministrazione | `admin@demo.it` | `demo1234` |
+| Cameriere | `cameriere@demo.it` | `demo1234` |
+| Cucina | `cucina@demo.it` | `demo1234` |
+
+### Manuale (se preferisci)
+
+1. Crea un progetto su [supabase.com](https://supabase.com)
+2. Copia `Project URL`, `anon key` e `service_role key` da **Project Settings → API**
+3. Crea il file `.env`:
+
+```env
+PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+PUBLIC_SUPABASE_KEY=eyJ...    # anon key
+PRIVATE_SUPABASE_SERVICE_KEY=eyJ...   # service_role key
+```
+
+4. Esegui `supabase/setup.sql` nel **SQL Editor** di Supabase
+5. `pnpm install && pnpm run dev`
 
 ### 7. Deploy su Vercel
 

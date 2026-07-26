@@ -335,7 +335,7 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="font-bold text-gray-800 flex items-center gap-2">
         <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
-        Extra / Modifiche
+        Personalizzazioni
       </h2>
       <button onclick={() => { editingMod = { menu_item_id: items[0]?.id ?? '', name: '', price_cents: 0 }; showModForm = !showModForm; }} class="text-sm font-medium text-blue-600 hover:text-blue-800">
         {showModForm ? 'Annulla' : '+ Aggiungi'}
@@ -371,7 +371,7 @@
         {/if}
       {/each}
       {#if modifiers.length === 0}
-        <p class="text-gray-400 text-sm text-center py-4">Nessun extra. Aggiungine uno per personalizzare i piatti.</p>
+        <p class="text-gray-400 text-sm text-center py-4">Nessuna personalizzazione. Aggiungine una per i tuoi piatti.</p>
       {/if}
     </div>
   </section>

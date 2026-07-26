@@ -178,7 +178,7 @@
         {#each catItems as item (item.id)}
           <button
             onclick={() => addItem(item.id, item.name, item.price_cents)}
-            class="w-full text-left px-4 py-3.5 hover:bg-gray-50 transition-colors active:bg-gray-100 border-b border-gray-50 last:border-0 flex items-start gap-3"
+            class="menu-item w-full text-left px-4 py-3.5 hover:bg-gray-50 border-b border-gray-50 last:border-0 flex items-start gap-3"
           >
             {#if item.image_url}
               <img src={item.image_url} alt={item.name} class="w-14 h-14 rounded-xl object-cover shrink-0" />
@@ -205,11 +205,11 @@
 
 <!-- Cart FAB -->
 {#if cartItems.length > 0}
-  <div class="fixed bottom-6 left-4 right-4 max-w-lg mx-auto z-50" style="animation: slideUp 0.25s ease-out">
+  <div class="fixed bottom-6 left-4 right-4 max-w-lg mx-auto z-50" style="animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1)">
     <button
       onclick={submitOrder}
       disabled={submitting || openStatus === false}
-      class="w-full bg-gray-900 text-white rounded-2xl py-4 px-6 font-bold text-base shadow-2xl hover:bg-gray-800 active:scale-[0.98] disabled:opacity-60 transition-all flex items-center justify-between"
+      class="w-full bg-gray-900 text-white rounded-2xl py-4 px-6 font-bold text-base shadow-2xl hover:bg-gray-800 active:scale-[0.97] disabled:opacity-60 transition-all duration-150 flex items-center justify-between"
     >
       <span class="flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
@@ -220,7 +220,7 @@
   </div>
 
   <!-- Cart summary sheet -->
-  <div class="fixed bottom-24 left-4 right-4 max-w-lg mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-40 space-y-3" style="animation: slideUp 0.2s ease-out">
+  <div class="fixed bottom-24 left-4 right-4 max-w-lg mx-auto bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 p-4 z-40 space-y-3" style="animation: slideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1)">
     <div class="space-y-3 text-sm max-h-60 overflow-y-auto">
       {#each cartItems as item, i}
         <div class="border-b border-gray-50 pb-3 last:border-0">
@@ -269,6 +269,11 @@
 {/if}
 
 <style>
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(0.95); } 100% { transform: scale(1); } }
+  @keyframes highlight { 0% { background-color: transparent; } 50% { background-color: rgb(239 246 255); } 100% { background-color: transparent; } }
+  :global(.menu-item) { transition: all 0.15s ease; }
+  :global(.menu-item:active) { transform: scale(0.98); background-color: rgb(249 250 251); }
+  :global(.cart-item-enter) { animation: highlight 0.6s ease; }
 </style>
