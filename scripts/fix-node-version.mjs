@@ -10,7 +10,7 @@ function fixFile(filePath) {
   if (!existsSync(filePath)) return;
   let content = readFileSync(filePath, 'utf-8');
   if (content.includes('nodejs18.x')) {
-    content = content.replace(/nodejs18\.x/g, 'nodejs20.x');
+    content = content.replace(/nodejs18\.x/g, 'nodejs22.x');
     writeFileSync(filePath, content);
     console.log(`Fixed: ${filePath}`);
   }

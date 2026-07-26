@@ -6,5 +6,5 @@ import vercel from '@astrojs/vercel/serverless';
 export default defineConfig({
   integrations: [svelte(), tailwind()],
   output: 'server',
-  adapter: vercel({ nodeVersion: '20.x' }),
+  adapter: vercel(),
 });
