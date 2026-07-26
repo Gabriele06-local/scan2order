@@ -349,6 +349,28 @@ begin
 end;
 $$;
 
+-- Staff SELECT policies (for kitchen/waiter to read order items)
+drop policy if exists "staff select order_items" on order_items;
+create policy "staff select order_items" on order_items
+  for select using (
+    exists (
+      select 1 from orders
+      join staff on staff.tenant_id = orders.tenant_id and staff.auth_user_id = (select auth.uid())
+      where orders.id = order_id
+    )
+  );
+
+drop policy if exists "staff select order_item_modifiers" on order_item_modifiers;
+create policy "staff select order_item_modifiers" on order_item_modifiers
+  for select using (
+    exists (
+      select 1 from order_items
+      join orders on orders.id = order_items.order_id
+      join staff on staff.tenant_id = orders.tenant_id and staff.auth_user_id = (select auth.uid())
+      where order_items.id = order_item_id
+    )
+  );
+
 -- Staff insert policies (for staff placing orders on behalf of tables)
 drop policy if exists "staff insert orders" on orders;
 create policy "staff insert orders" on orders
