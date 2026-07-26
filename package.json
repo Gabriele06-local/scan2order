@@ -3,10 +3,12 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node scripts/fix-node-version.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint src/",
