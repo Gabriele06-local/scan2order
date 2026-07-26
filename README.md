@@ -399,20 +399,6 @@ Test E2E (Playwright) disponibili in `tests/e2e/` per testare il flusso completo
 
 ---
 
-## Sicurezza della demo pubblica
-
-La demo live su Vercel è pubblica e chiunque può ordinare o accedere allo staff. Per proteggerla:
-
-- **Rate limiting**: massimo 5 ordini per tavolo ogni 10 minuti (lato database)
-- **Reset automatico**: la demo viene resettata ogni 30 minuti (GitHub Actions → `/api/reset-demo`)
-- **Dati fissi**: menu, orari e impostazioni tornano al seed originale dopo ogni reset
-- **Credenziali**: se qualcuno vandalizza, tutto torna normale entro 30 minuti
-
-Per abilitare il reset automatico sul tuo fork:
-1. Imposta `RESET_SECRET` nelle Environment Variables del tuo repo GitHub
-2. Imposta la stessa variabile su Vercel
-3. Il workflow `.github/workflows/reset-demo.yml` chiamerà l'endpoint ogni 30 minuti
-
 ## Problemi noti
 
 - **Build locale su Windows**: l'adapter Vercel può fallire per symlink. Non è un problema di codice — fai il deploy direttamente da Vercel o usa WSL.
