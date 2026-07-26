@@ -161,10 +161,9 @@
               </div>
             </div>
             <input bind:value={item.notes} placeholder="Note" class="w-full mt-2 border border-gray-200 rounded-lg px-3 py-1.5 text-xs" />
-            {@const itemMods = getMods(item.id)}
-            {#if itemMods.length > 0}
+            {#if getMods(item.id).length > 0}
               <div class="flex flex-wrap gap-1.5 mt-2">
-                {#each itemMods as mod}
+                {#each getMods(item.id) as mod}
                   <button onclick={() => toggleModifier(i, mod)}
                     class="text-xs px-2 py-1 rounded-full border {isModSelected(mod.id, i) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-500'}">
                     {mod.name}{mod.price_cents > 0 ? ` +${(mod.price_cents / 100).toFixed(2)}€` : ''}
