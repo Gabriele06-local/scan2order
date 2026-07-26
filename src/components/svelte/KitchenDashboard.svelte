@@ -53,15 +53,21 @@
     if (confirmedNow > prevConfirmed && prevConfirmed > 0) notify();
     prevConfirmed = confirmedNow;
     document.title = confirmedNow > 0 ? `(${confirmedNow}) QR Menu` : 'QR Menu';
-    let bdg = document.getElementById('kitchen-badge');
-    if (!bdg && confirmedNow > 0) {
-      bdg = document.createElement('div');
-      bdg.id = 'kitchen-badge';
-      bdg.style.cssText = 'position:fixed;top:0;right:0;background:red;color:white;font-size:10px;padding:2px 6px;border-radius:999px;z-index:9999;font-family:sans-serif';
-      document.body.appendChild(bdg);
+    let oldBdg = document.getElementById('kitchen-badge');
+    if (oldBdg && confirmedNow === 0) oldBdg.remove();
+    if (confirmedNow > 0) {
+      if (!oldBdg) {
+        oldBdg = document.createElement('div');
+        oldBdg.id = 'kitchen-badge';
+        oldBdg.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#ef4444;color:white;font-size:14px;font-weight:700;padding:8px 20px;border-radius:999px;z-index:9999;font-family:sans-serif;box-shadow:0 4px 12px rgba(239,68,68,0.4);animation:pulse 2s infinite';
+        const s = document.createElement('style');
+        s.id = 'kitchen-badge-style';
+        s.textContent = '@keyframes pulse{0%{opacity:1;transform:translateX(-50%) scale(1)}50%{opacity:0.85;transform:translateX(-50%) scale(1.05)}100%{opacity:1;transform:translateX(-50%) scale(1)}}';
+        document.head.appendChild(s);
+        document.body.appendChild(oldBdg);
+      }
+      oldBdg.textContent = confirmedNow === 1 ? '1 nuovo ordine' : `${confirmedNow} nuovi ordini`;
     }
-    if (bdg) bdg.textContent = confirmedNow > 0 ? String(confirmedNow) : '';
-    if (bdg && confirmedNow === 0) bdg.remove();
 
     orders = await Promise.all((data ?? []).map(async (o: any) => {
       const { data: orderItems } = await supabase
