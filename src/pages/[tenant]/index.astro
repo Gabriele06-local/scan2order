@@ -1,0 +1,59 @@
+---
+import Layout from '../../components/astro/Layout.astro';
+import Cart from '../../components/svelte/Cart.svelte';
+import { getMenuForTenant, getTableByToken } from '../../lib/orders';
+import { supabase } from '../../lib/supabase';
+
+const { tenant } = Astro.params;
+const tableToken = Astro.url.searchParams.get('table');
+
+if (!tenant || !tableToken) {
+  return Astro.redirect('/');
+}
+
+const table = await getTableByToken(tableToken);
+if (!table) {
+  return Astro.redirect('/');
+}
+
+const menu = await getMenuForTenant(tenant);
+if (!menu) {
+  return Astro.redirect('/');
+}
+
+const tenantId = (menu.tenant as any).id;
+const tableId = (table as any).id;
+const tableLabel = (table as any).label;
+const tenantName = (menu.tenant as any).name || tenant;
+
+// Fetch modifiers and tenant operating hours
+const { data: modifiers } = await supabase
+  .from('item_modifiers')
+  .select('*')
+  .eq('tenant_id', tenantId)
+  .eq('available', true)
+  .order('sort_order');
+
+const { data: ten } = await supabase
+  .from('tenants')
+  .select('operating_hours, show_order_history')
+  .eq('id', tenantId)
+  .single();
+---
+
+<Layout hideHeader={true}>
+  <main class="max-w-lg mx-auto p-4 pb-32">
+    <Cart
+      client:load
+      tenantId={tenantId}
+      tableId={tableId}
+      tenantName={tenantName}
+      tableLabel={tableLabel}
+      categories={menu.categories}
+      allItems={menu.items}
+      modifiers={modifiers ?? []}
+      operatingHours={(ten as any)?.operating_hours ?? {}}
+      showOrderHistory={(ten as any)?.show_order_history ?? false}
+    />
+  </main>
+</Layout>

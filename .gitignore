@@ -1,0 +1,30 @@
+# Environment
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+.vercel/
+.astro/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Supabase local
+supabase/.temp/

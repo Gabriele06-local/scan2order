@@ -1,0 +1,11 @@
+---
+import Layout from '../../components/astro/Layout.astro';
+import StaffLogin from '../../components/svelte/StaffLogin.svelte';
+---
+
+<Layout hideHeader={true}>
+  <main class="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-gray-50 to-blue-50">
+    <img src="/favicon/favicon-96x96.png" alt="QR" class="w-16 h-16 mb-6" />
+    <StaffLogin client:load />
+  </main>
+</Layout>
