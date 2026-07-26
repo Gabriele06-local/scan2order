@@ -1,30 +1,32 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
+const outputDir = join(root, '.vercel', 'output');
 
-const configPath = join(root, '.vercel', 'output', 'config.json');
-if (!existsSync(configPath)) {
-  console.log('config.json not found, skipping');
-  process.exit(0);
-}
-
-let config = JSON.parse(readFileSync(configPath, 'utf-8'));
-
-function fixRuntime(obj) {
-  if (!obj || typeof obj !== 'object') return;
-  if (obj.runtime === 'nodejs18.x') {
-    console.log(`Fixing runtime: ${obj.runtime} → nodejs20.x`);
-    obj.runtime = 'nodejs20.x';
-  }
-  for (const val of Object.values(obj)) {
-    if (Array.isArray(val)) val.forEach(fixRuntime);
-    else fixRuntime(val);
+function fixFile(filePath) {
+  if (!existsSync(filePath)) return;
+  let content = readFileSync(filePath, 'utf-8');
+  if (content.includes('nodejs18.x')) {
+    content = content.replace(/nodejs18\.x/g, 'nodejs20.x');
+    writeFileSync(filePath, content);
+    console.log(`Fixed: ${filePath}`);
   }
 }
 
-fixRuntime(config);
-writeFileSync(configPath, JSON.stringify(config, null, 2));
-console.log('Done');
+function walkDir(dir) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      walkDir(full);
+    } else if (entry === 'config.json' || entry === '.vc-config.json') {
+      fixFile(full);
+    }
+  }
+}
+
+walkDir(outputDir);
+console.log('Done fixing Node.js version');
