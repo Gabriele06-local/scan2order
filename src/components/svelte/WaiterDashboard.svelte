@@ -2,14 +2,14 @@
   import { onMount } from 'svelte';
   import { supabase } from '../../lib/supabase';
   import { transitionOrderStatus } from '../../lib/orders';
-  import OrderCard from './OrderCard.svelte';
+
+  interface OrderItem {
+    name: string; quantity: number; notes?: string; modifiers?: string;
+  }
 
   interface OrderRow {
-    id: string;
-    table_label: string;
-    status: string;
-    total_cents: number;
-    created_at: string;
+    id: string; table_label: string; status: string;
+    total_cents: number; created_at: string; items: OrderItem[];
   }
 
   let orders: OrderRow[] = $state([]);
@@ -30,9 +30,21 @@
       .in('status', ['submitted', 'pending_waiter_review', 'ready'])
       .order('created_at', { ascending: false });
     if (error) { console.error(error); return; }
-    orders = (data ?? []).map((o: any) => ({
-      id: o.id, table_label: o.tables?.label ?? '?',
-      status: o.status, total_cents: o.total_cents, created_at: o.created_at,
+    orders = await Promise.all((data ?? []).map(async (o: any) => {
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('quantity, notes, menu_items(name), order_item_modifiers(name)')
+        .eq('order_id', o.id);
+      return {
+        id: o.id, table_label: o.tables?.label ?? '?',
+        status: o.status, total_cents: o.total_cents, created_at: o.created_at,
+        items: (items ?? []).map((i: any) => ({
+          name: i.menu_items?.name ?? '?', quantity: i.quantity,
+          notes: i.notes,
+          modifiers: i.order_item_modifiers?.length > 0
+            ? i.order_item_modifiers.map((m: any) => m.name).join(', ') : undefined,
+        })),
+      };
     }));
   }
 
@@ -63,7 +75,32 @@
     {:else}
       <div class="space-y-3">
         {#each pendingOrders as o (o.id)}
-          <OrderCard order={o} actions={[{ label: 'Conferma', status: 'confirmed', action: () => confirmOrder(o) }]} />
+          <div class="rounded-xl border-2 border-amber-100 bg-amber-50 p-4 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-lg font-bold text-gray-900">{o.table_label}</span>
+                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <button onclick={() => confirmOrder(o)}
+                class="text-sm font-semibold px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-all shadow-sm whitespace-nowrap">
+                Conferma
+              </button>
+            </div>
+            <div class="space-y-1 mb-2">
+              {#each o.items as item}
+                <div class="text-sm text-gray-700">
+                  <span class="font-medium">×{item.quantity}</span> {item.name}
+                  {#if item.modifiers}
+                    <span class="text-xs text-gray-400 ml-2">+{item.modifiers}</span>
+                  {/if}
+                  {#if item.notes}
+                    <p class="text-xs text-gray-400 ml-4">Note: {item.notes}</p>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+            <div class="text-sm font-medium text-gray-600">{(o.total_cents / 100).toFixed(2)}€</div>
+          </div>
         {/each}
       </div>
     {/if}
@@ -80,7 +117,32 @@
     {:else}
       <div class="space-y-3">
         {#each readyOrders as o (o.id)}
-          <OrderCard order={o} actions={[{ label: 'Servito', status: 'served', action: () => markServed(o.id) }]} />
+          <div class="rounded-xl border-2 border-emerald-100 bg-emerald-50 p-4 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-lg font-bold text-gray-900">{o.table_label}</span>
+                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <button onclick={() => markServed(o.id)}
+                class="text-sm font-semibold px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-sm whitespace-nowrap">
+                Servito
+              </button>
+            </div>
+            <div class="space-y-1 mb-2">
+              {#each o.items as item}
+                <div class="text-sm text-gray-700">
+                  <span class="font-medium">×{item.quantity}</span> {item.name}
+                  {#if item.modifiers}
+                    <span class="text-xs text-gray-400 ml-2">+{item.modifiers}</span>
+                  {/if}
+                  {#if item.notes}
+                    <p class="text-xs text-gray-400 ml-4">Note: {item.notes}</p>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+            <div class="text-sm font-medium text-gray-600">{(o.total_cents / 100).toFixed(2)}€</div>
+          </div>
         {/each}
       </div>
     {/if}
