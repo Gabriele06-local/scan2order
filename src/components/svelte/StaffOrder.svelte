@@ -24,7 +24,25 @@
   }, 0));
   let count = $derived(cartItems.reduce((s, i) => s + i.quantity, 0));
 
+  // Persist cart across navigation
+  function saveCart() {
+    sessionStorage.setItem('staff_cart', JSON.stringify(cartItems));
+  }
+
+  function restoreCart() {
+    try {
+      const saved = sessionStorage.getItem('staff_cart');
+      if (saved) cartItems = JSON.parse(saved);
+    } catch {}
+  }
+
+  function goBack() {
+    saveCart();
+    window.history.back();
+  }
+
   onMount(async () => {
+    restoreCart();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: st } = await supabase.from('staff').select('tenant_id').eq('auth_user_id', user.id).maybeSingle();
@@ -48,15 +66,17 @@
     const ex = cartItems.find((i) => i.id === id);
     if (ex) { ex.quantity += 1; }
     else { cartItems.push({ id, name, quantity: 1, unit_price_cents: priceCents, notes: '', selectedModifiers: [] }); }
+    saveCart();
   }
 
-  function removeItem(i: number) { cartItems.splice(i, 1); }
+  function removeItem(i: number) { cartItems.splice(i, 1); saveCart(); }
 
   function toggleModifier(itemIdx: number, mod: { id: string; name: string; price_cents: number }) {
     const ci = cartItems[itemIdx];
     const idx = ci.selectedModifiers.findIndex((m) => m.id === mod.id);
     if (idx >= 0) ci.selectedModifiers.splice(idx, 1);
     else ci.selectedModifiers.push({ ...mod });
+    saveCart();
   }
 
   function getMods(itemId: string) { return modifiers.filter((m) => m.menu_item_id === itemId); }
@@ -79,7 +99,7 @@
     } as any);
     submitting = false;
     if (rpcErr) { error = rpcErr.message; }
-    else { done = true; cartItems = []; }
+    else { done = true; cartItems = []; sessionStorage.removeItem('staff_cart'); }
   }
 </script>
 
