@@ -31,9 +31,19 @@ Sistema di ordinazione via QR code per ristoranti. I clienti inquadrano il QR su
 - Mostra/nascondi storico ordini al cliente
 - Conferma cameriere obbligatoria on/off
 
-## Screenshot
+## Demo live
 
-_(aggiungi screenshot qui)_
+https://scan2order-o6z3vpo9r-gabrieles-projects-e9de886d.vercel.app
+
+**Staff login:** https://scan2order-o6z3vpo9r-gabrieles-projects-e9de886d.vercel.app/staff/login
+
+| Ruolo | Email | Password |
+|---|---|---|
+| Admin | `admin@demo.it` | `demo1234` |
+| Cameriere | `cameriere@demo.it` | `demo1234` |
+| Cucina | `cucina@demo.it` | `demo1234` |
+
+Il menu cliente è accessibile dalla root. Scansiona il QR o apri il link per vedere il menu del "Ristorante Demo" dal tavolo 1.
 
 ## Requisiti
 
