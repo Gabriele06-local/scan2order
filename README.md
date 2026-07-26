@@ -10,8 +10,8 @@ Cliente → QR → Menu → Ordine → Cameriere conferma → Cucina prepara →
 
 ## Demo live
 
-**Menu:** https://scan2order-o6z3vpo9r-gabrieles-projects-e9de886d.vercel.app
-**Staff:** https://scan2order-o6z3vpo9r-gabrieles-projects-e9de886d.vercel.app/staff/login
+**Menu:** https://scan2order-alpha.vercel.app
+**Staff:** https://scan2order-alpha.vercel.app/staff/login
 
 | Ruolo | Email | Password |
 |---|---|---|
