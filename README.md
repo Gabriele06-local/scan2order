@@ -2,6 +2,9 @@
 
 **I clienti inquadrano il QR sul tavolo e ordinano dal telefono. Zero carta, zero app.**
 
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 Piatti con foto, calorie e allergeni. Extra e note per ogni ordine. Le comande arrivano in tempo reale in cucina e al cameriere. Tutto gratis, open source.
 
 ```
@@ -67,7 +70,7 @@ I menu cartacei costano, si sporcano, e vanno ristampati ogni volta che cambi un
 ### Cucina
 
 - **Prepara e pronto** — Gestisci il flusso: confermato → in preparazione → pronto
-- **Stampa ordini** — Comanda stampabile con piatti, extra e note
+- **Stampa ordini** — Apre finestra di stampa browser ottimizzata per cucina (piatti, extra, note). *Nota: non supporta stampanti termiche ESC/POS. Per integrazione serve un layer aggiuntivo (es. server locale con node-escpos).*
 
 ### Admin
 

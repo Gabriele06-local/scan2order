@@ -229,9 +229,13 @@
               {#if item.description}
                 <p class="text-sm text-gray-400 mt-0.5 leading-relaxed">{item.description}</p>
               {/if}
-              <div class="flex items-center gap-2 mt-1 text-xs text-gray-300">
-                {#if item.kcal}<span>{item.kcal} kcal</span>{/if}
-                {#if item.allergens}<span class={item.kcal ? 'before:content-["·"] before:mr-2' : ''}>{item.allergens}</span>{/if}
+              <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                {#if item.kcal}
+                  <span class="text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-md px-1.5 py-0.5">{item.kcal} kcal</span>
+                {/if}
+                {#if item.allergens}
+                  <span class="text-xs font-medium bg-red-50 text-red-600 border border-red-200 rounded-md px-1.5 py-0.5">{item.allergens}</span>
+                {/if}
               </div>
             </div>
             <span class="text-gray-700 font-semibold whitespace-nowrap tabular-nums shrink-0">
