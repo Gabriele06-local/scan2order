@@ -177,6 +177,64 @@
   function copyToken(token: string) {
     navigator.clipboard?.writeText(`${window.location.origin}/${tenantSlug}?table=${token}`);
   }
+
+  // Export menu as JSON
+  function exportMenu() {
+    const menu = { categories: categories.map((c) => ({ name: c.name, sort_order: c.sort_order })), items: [] as any[], modifiers: [] as any[] };
+    for (const item of items) {
+      const cat = categories.find((c) => c.id === item.category_id);
+      menu.items.push({ category: cat?.name ?? '', name: item.name, description: item.description, price_cents: item.price_cents, available: item.available, image_url: item.image_url, kcal: item.kcal, allergens: item.allergens });
+    }
+    for (const mod of modifiers) {
+      const item = items.find((i) => i.id === mod.menu_item_id);
+      menu.modifiers.push({ item_name: item?.name ?? '', name: mod.name, price_cents: mod.price_cents, sort_order: mod.sort_order, available: mod.available });
+    }
+    const blob = new Blob([JSON.stringify(menu, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `menu-${tenantSlug}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // Import menu from JSON
+  async function importMenu(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    let data: any;
+    try { data = JSON.parse(text); } catch { alert('File JSON non valido'); return; }
+    if (!data.categories?.length) { alert('Nessuna categoria trovata nel file'); return; }
+    if (!confirm('Importare il menu? Le categorie, piatti e personalizzazioni esistenti verranno SOSTITUITI.')) return;
+
+    // Delete existing
+    await supabase.from('item_modifiers').delete().eq('tenant_id', tenantId);
+    await supabase.from('menu_items').delete().eq('tenant_id', tenantId);
+    await supabase.from('menu_categories').delete().eq('tenant_id', tenantId);
+
+    // Insert categories
+    for (let i = 0; i < data.categories.length; i++) {
+      const cat = data.categories[i];
+      await supabase.from('menu_categories').insert({ tenant_id: tenantId, name: cat.name, sort_order: cat.sort_order ?? i + 1 });
+    }
+    // Reload to get new IDs
+    await loadAll();
+    // Match items to categories
+    for (const item of (data.items ?? [])) {
+      const cat = categories.find((c) => c.name === item.category);
+      if (!cat) continue;
+      await supabase.from('menu_items').insert({ tenant_id: tenantId, category_id: cat.id, name: item.name, description: item.description || null, price_cents: item.price_cents, available: item.available ?? true, image_url: item.image_url || null, kcal: item.kcal || null, allergens: item.allergens || null });
+    }
+    // Match modifiers to items
+    await loadAll();
+    for (const mod of (data.modifiers ?? [])) {
+      const item = items.find((i: any) => i.name === mod.item_name);
+      if (!item) continue;
+      await supabase.from('item_modifiers').insert({ tenant_id: tenantId, menu_item_id: item.id, name: mod.name, price_cents: mod.price_cents, sort_order: mod.sort_order ?? 0, available: mod.available ?? true });
+    }
+    await loadAll();
+    alert('Menu importato con successo!');
+  }
 </script>
 
 <div class="space-y-8">
@@ -410,6 +468,24 @@
           </div>
         </div>
       {/each}
+    </div>
+  </section>
+
+  <!-- EXPORT / IMPORT -->
+  <section class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-bold text-gray-800 flex items-center gap-2">
+        <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
+        Esporta / Importa Menu
+      </h2>
+    </div>
+    <p class="text-xs text-gray-400 mb-4">Esporta il menu come JSON per salvarlo o trasferirlo. Importa un file JSON per sostituire tutto il menu (categorie, piatti e personalizzazioni).</p>
+    <div class="flex items-center gap-3">
+      <button onclick={exportMenu} class="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">Scarica JSON</button>
+      <label class="bg-gray-100 text-gray-700 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-200 cursor-pointer">
+        Carica JSON
+        <input type="file" accept=".json" onchange={importMenu} class="hidden" />
+      </label>
     </div>
   </section>
 </div>

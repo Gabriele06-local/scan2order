@@ -53,6 +53,7 @@
   let submitting = $state(false);
   let done = $state(false);
   let error = $state('');
+  let offlineQueued = $state(0);
   let recentOrders: Array<{ id: string; total_cents: number; created_at: string; status: string }> = $state([]);
   let showHistory = $state(false);
 
@@ -70,6 +71,12 @@
       .order('created_at', { ascending: false })
       .limit(10);
     if (data) recentOrders = data as any;
+    // Sync any queued offline orders
+    const q = getQueue();
+    offlineQueued = q.length;
+    if (q.length > 0 && navigator.onLine) syncQueue();
+    window.addEventListener('online', syncQueue);
+    return () => window.removeEventListener('online', syncQueue);
   });
 
   function addItem(id: string, name: string, priceCents: number) {
@@ -95,16 +102,45 @@
     return cartItems[itemIdx]?.selectedModifiers.some((m) => m.id === modId) ?? false;
   }
 
+  function getQueue() {
+    try { return JSON.parse(localStorage.getItem('order_queue') || '[]'); } catch { return []; }
+  }
+
+  function saveQueue(queue: any[]) {
+    localStorage.setItem('order_queue', JSON.stringify(queue));
+    offlineQueued = queue.length;
+  }
+
+  async function syncQueue() {
+    const queue = getQueue();
+    if (!queue.length) return;
+    for (let i = queue.length - 1; i >= 0; i--) {
+      const item = queue[i];
+      const id = await createOrder(item.tenantId, item.tableId, item.items);
+      if (id) { queue.splice(i, 1); saveQueue(queue); }
+    }
+  }
+
   async function submitOrder() {
     if (cartItems.length === 0) return;
     submitting = true; error = '';
-    const result = await createOrder(tenantId, tableId, cartItems.map((i) => ({
-      menu_item_id: i.id,
-      quantity: i.quantity,
-      notes: i.notes || null,
+    const payload = cartItems.map((i) => ({
+      menu_item_id: i.id, quantity: i.quantity, notes: i.notes || null,
       unit_price_cents: i.unit_price_cents,
       modifiers: i.selectedModifiers.map((m) => ({ id: m.id, name: m.name, price_cents: m.price_cents })),
-    })));
+    }));
+
+    if (!navigator.onLine) {
+      const queue = getQueue();
+      queue.push({ tenantId, tableId, items: payload, createdAt: new Date().toISOString() });
+      saveQueue(queue);
+      submitting = false;
+      done = true;
+      cartItems = [];
+      return;
+    }
+
+    const result = await createOrder(tenantId, tableId, payload);
     submitting = false;
     if (result) { done = true; cartItems = []; recentOrders = [{ id: result, total_cents: total, created_at: new Date().toISOString(), status: 'submitted' }, ...recentOrders]; }
     else { error = "Errore nell'invio. Riprova."; }
@@ -128,6 +164,12 @@
     in_kitchen: 'In preparazione', ready: 'Pronto', served: 'Servito',
   };
 </script>
+
+{#if offlineQueued > 0}
+  <div class="fixed top-4 left-4 right-4 max-w-lg mx-auto bg-amber-500 text-white rounded-2xl py-3 px-5 text-center font-semibold z-50 shadow-lg" style="animation: fadeIn 0.3s ease-out">
+    {offlineQueued} ordine{offlineQueued > 1 ? 'i' : ''} in coda — verranno inviati appena torni online.
+  </div>
+{/if}
 
 {#if done}
   <div class="fixed top-4 left-4 right-4 max-w-lg mx-auto bg-emerald-600 text-white rounded-2xl py-3 px-5 text-center font-semibold z-50 shadow-lg" style="animation: fadeIn 0.3s ease-out">
