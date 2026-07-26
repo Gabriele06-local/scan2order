@@ -106,6 +106,9 @@ create table if not exists order_item_modifiers (
 create index if not exists idx_tables_qr_token on tables (qr_token);
 create index if not exists idx_orders_tenant_status on orders (tenant_id, status);
 
+-- Enable Realtime for orders (required for live dashboard updates)
+alter publication supabase_realtime add table if not exists orders;
+
 -- 3. RLS
 
 alter table tenants enable row level security;
