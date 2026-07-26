@@ -75,7 +75,7 @@
     <h1>Ordini in cucina</h1>
     ${orders.map((o: any) => `
       <div class="order">
-        <div class="header">Tavolo ${o.table_label}</div>
+        <div class="header">${o.table_label}</div>
         <div class="time">${new Date(o.created_at).toLocaleString('it-IT')}</div>
         ${o.items.map((i: any) => `
           <div class="item">×${i.quantity} ${i.name}</div>
@@ -115,7 +115,7 @@
           <div class="rounded-xl border-2 border-blue-100 bg-blue-50 p-4 hover:shadow-md transition-shadow">
             <div class="flex items-start justify-between mb-2">
               <div class="flex items-center gap-2">
-                <span class="text-lg font-bold text-gray-900">Tavolo {o.table_label}</span>
+                <span class="text-lg font-bold text-gray-900">{o.table_label}</span>
                 <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <button onclick={() => startCooking(o.id)}
@@ -157,7 +157,7 @@
           <div class="rounded-xl border-2 border-indigo-100 bg-indigo-50 p-4 hover:shadow-md transition-shadow">
             <div class="flex items-start justify-between mb-2">
               <div class="flex items-center gap-2">
-                <span class="text-lg font-bold text-gray-900">Tavolo {o.table_label}</span>
+                <span class="text-lg font-bold text-gray-900">{o.table_label}</span>
                 <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <button onclick={() => markReady(o.id)}

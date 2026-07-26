@@ -35,7 +35,7 @@
   <div class="flex items-start justify-between mb-3">
     <div>
       <div class="flex items-center gap-2">
-        <span class="text-lg font-bold text-gray-900">Tavolo {order.table_label}</span>
+        <span class="text-lg font-bold text-gray-900">{order.table_label}</span>
         <span class="text-xs text-gray-400">{time}</span>
       </div>
     </div>
