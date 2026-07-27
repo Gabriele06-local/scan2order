@@ -30,7 +30,6 @@
     "logging_in": "Signing in...",
     "invalid": "Invalid email or password",
     "no_staff": "You don't have permission to access",
-    "demo_hint": "Demo: admin@demo.it / demo1234"
   },
   "admin": {
     "title": "Administration",

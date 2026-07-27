@@ -62,5 +62,4 @@
       </button>
     </form>
   </div>
-  <p class="text-xs text-gray-400 text-center mt-3">{t('staff_login.demo_hint')}</p>
 </div>

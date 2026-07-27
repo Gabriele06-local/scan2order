@@ -30,7 +30,6 @@
     "logging_in": "Accesso in corso...",
     "invalid": "Email o password non validi",
     "no_staff": "Non hai i permessi per accedere",
-    "demo_hint": "Demo: admin@demo.it / demo1234"
   },
   "admin": {
     "title": "Amministrazione",
