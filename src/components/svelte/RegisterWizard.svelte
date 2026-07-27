@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { supabase } from '../../lib/supabase';
   import { t } from '../../lib/i18n/index.svelte.ts';
 
   let step = $state(1);
@@ -22,62 +21,24 @@
     error = '';
 
     try {
-      const { data: existing } = await supabase.from('tenants').select('id').eq('slug', slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')).maybeSingle();
-      if (existing) {
-        error = t('register.error_slug_taken');
-        loading = false;
-        return;
-      }
-
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password,
-        options: { data: { full_name: name.trim() } },
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantName: restaurantName.trim(),
+          slug: slug.trim(),
+          email: email.trim(),
+          password: password,
+          fullName: name.trim(),
+        }),
       });
 
-      if (authError || !authData.user) {
-        error = authError?.message || t('register.error_generic');
+      const data = await res.json();
+      if (!res.ok) {
+        error = data.error || t('register.error_generic');
         loading = false;
         return;
       }
-
-      const cleanSlug = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
-      const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .insert({ name: restaurantName.trim(), slug: cleanSlug })
-        .select()
-        .single();
-
-      if (tenantError || !tenant) {
-        error = tenantError?.message || t('register.error_generic');
-        loading = false;
-        return;
-      }
-
-      const { error: staffError } = await supabase
-        .from('staff')
-        .insert({ tenant_id: (tenant as any).id, auth_user_id: authData.user.id, role: 'admin' });
-
-      if (staffError) {
-        error = staffError.message;
-        loading = false;
-        return;
-      }
-
-      const catId = crypto.randomUUID();
-      await supabase.from('menu_categories').insert([
-        { id: catId, tenant_id: (tenant as any).id, name: 'Antipasti', sort_order: 1 },
-        { tenant_id: (tenant as any).id, name: 'Primi', sort_order: 2 },
-        { tenant_id: (tenant as any).id, name: 'Secondi', sort_order: 3 },
-        { tenant_id: (tenant as any).id, name: 'Dolci', sort_order: 4 },
-      ]);
-
-      await supabase.from('tables').insert([
-        { tenant_id: (tenant as any).id, label: 'Tavolo 1' },
-        { tenant_id: (tenant as any).id, label: 'Tavolo 2' },
-        { tenant_id: (tenant as any).id, label: 'Tavolo 3' },
-        { tenant_id: (tenant as any).id, label: 'Tavolo 4' },
-      ]);
 
       done = true;
     } catch (e: any) {
