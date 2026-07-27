@@ -29,7 +29,7 @@
     "login_btn": "Sign In",
     "logging_in": "Signing in...",
     "invalid": "Invalid email or password",
-    "no_staff": "You don't have permission to access",
+    "no_staff": "You don't have permission to access"
   },
   "admin": {
     "title": "Administration",
