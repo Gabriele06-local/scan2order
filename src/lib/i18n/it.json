@@ -29,7 +29,7 @@
     "login_btn": "Accedi",
     "logging_in": "Accesso in corso...",
     "invalid": "Email o password non validi",
-    "no_staff": "Non hai i permessi per accedere",
+    "no_staff": "Non hai i permessi per accedere"
   },
   "admin": {
     "title": "Amministrazione",
