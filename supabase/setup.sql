@@ -107,7 +107,14 @@ create index if not exists idx_tables_qr_token on tables (qr_token);
 create index if not exists idx_orders_tenant_status on orders (tenant_id, status);
 
 -- Enable Realtime for orders (required for live dashboard updates)
-alter publication supabase_realtime add table if not exists orders;
+-- Note: 'if not exists' is not supported by ALTER PUBLICATION, so use DO block
+do $$
+begin
+  alter publication supabase_realtime add table orders;
+exception when unique_violation then
+  null;
+end;
+$$;
 
 -- 3. RLS
 
@@ -182,14 +189,22 @@ create policy "staff delete tables" on tables
   for delete using (exists (select 1 from staff where staff.tenant_id = tables.tenant_id and staff.auth_user_id = (select auth.uid())));
 
 -- Orders: insert allowed for anon with valid table
+-- Single combined insert policy for orders (replaces separate anon + staff policies)
 drop policy if exists "orders anon insert" on orders;
-create policy "orders anon insert" on orders
+drop policy if exists "staff insert orders" on orders;
+create policy "orders insert" on orders
   for insert with check (
-    exists (select 1 from tables where tables.id = table_id and tables.tenant_id = tenant_id)
+    -- anon customers: valid table_id + tenant_id
+    (exists (select 1 from tables where tables.id = table_id and tables.tenant_id = tenant_id))
+    or
+    -- staff: valid staff membership
+    (exists (select 1 from staff where staff.tenant_id = tenant_id and staff.auth_user_id = (select auth.uid())))
   );
 
+-- Single combined insert policy for order_items (replaces separate anon + staff policies)
 drop policy if exists "order_items anon insert" on order_items;
-create policy "order_items anon insert" on order_items
+drop policy if exists "staff insert order_items" on order_items;
+create policy "order_items insert" on order_items
   for insert with check (
     exists (select 1 from orders where orders.id = order_id)
   );
@@ -215,10 +230,13 @@ drop policy if exists "staff delete item_modifiers" on item_modifiers;
 create policy "staff delete item_modifiers" on item_modifiers
   for delete using (exists (select 1 from staff where staff.tenant_id = item_modifiers.tenant_id and staff.auth_user_id = (select auth.uid())));
 
--- Order item modifiers: anon insert for customer orders
+-- Order item modifiers: single combined insert policy (replaces separate anon + staff policies)
 drop policy if exists "order_item_modifiers anon insert" on order_item_modifiers;
-create policy "order_item_modifiers anon insert" on order_item_modifiers
-  for insert with check (true);
+drop policy if exists "staff insert order_item_modifiers" on order_item_modifiers;
+create policy "order_item_modifiers insert" on order_item_modifiers
+  for insert with check (
+    exists (select 1 from order_items where order_items.id = order_item_id)
+  );
 
 -- Staff read/update
 drop policy if exists "staff select orders" on orders;
@@ -242,6 +260,9 @@ create policy "staff update orders" on orders
   );
 
 -- 4. Functions
+-- Note: create_order remains SECURITY DEFINER intentionally — it needs to bypass
+-- RLS for the rate limit check (SELECT from orders as anon). This is expected
+-- and triggers Supabase advisor warnings #0028/#0029 which are false positives.
 
 create or replace function transition_order_status(
   p_order_id uuid,
@@ -495,17 +516,27 @@ drop policy if exists "staff can read orders for their tenant" on orders;
 drop policy if exists "staff can update orders for their tenant" on orders;
 drop policy if exists "order_items insert with valid order" on order_items;
 
--- Revoke EXECUTE on transition_order_status from anon (only staff should call it)
-revoke execute on function public.transition_order_status from anon;
+-- Properly manage function EXECUTE grants
+-- In Postgres, EXECUTE is granted to PUBLIC by default, so revoking from 'anon'
+-- is not enough (anon inherits from PUBLIC). We revoke from PUBLIC and grant selectively.
+revoke execute on function public.create_order from public;
+revoke execute on function public.create_staff_order from public;
+revoke execute on function public.transition_order_status from public;
+grant execute on function public.create_order to anon;
+grant execute on function public.create_order to authenticated;
+grant execute on function public.create_staff_order to authenticated;
+grant execute on function public.transition_order_status to authenticated;
 
 -- 6. Storage bucket for dish images
 insert into storage.buckets (id, name, public)
 values ('dish-images', 'dish-images', true)
 on conflict (id) do nothing;
 
+-- NOTE: Public URLs (via /storage/v1/object/public/) bypass RLS, so restricting
+-- SELECT to authenticated only prevents API listing but still allows image views.
 drop policy if exists "Dish images public select" on storage.objects;
 create policy "Dish images public select" on storage.objects
-  for select using (bucket_id = 'dish-images');
+  for select using (bucket_id = 'dish-images' and (select auth.role()) = 'authenticated');
 
 drop policy if exists "Staff upload dish images" on storage.objects;
 create policy "Staff upload dish images" on storage.objects
