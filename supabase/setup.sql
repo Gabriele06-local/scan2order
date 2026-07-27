@@ -142,6 +142,10 @@ drop policy if exists "staff select own" on staff;
 create policy "staff select own" on staff
   for select using ((select auth.uid()) = auth_user_id);
 
+drop policy if exists "authenticated insert tenant" on tenants;
+create policy "authenticated insert tenant" on tenants
+  for insert with check ((select auth.role()) = 'authenticated');
+
 drop policy if exists "staff update tenant" on tenants;
 create policy "staff update tenant" on tenants
   for update using (exists (select 1 from staff where staff.tenant_id = tenants.id and staff.auth_user_id = (select auth.uid())));

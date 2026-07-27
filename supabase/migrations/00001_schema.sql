@@ -116,6 +116,10 @@ create policy "menu_items public select"
 create policy "staff select own"
   on staff for select
   using (auth.uid() = auth_user_id);
+create policy "authenticated insert tenant"
+  on tenants for insert
+  with check (auth.role() = 'authenticated');
+
 create policy "staff update tenant"
   on tenants for update
   using (exists (select 1 from staff where staff.tenant_id = tenants.id and staff.auth_user_id = auth.uid()));
