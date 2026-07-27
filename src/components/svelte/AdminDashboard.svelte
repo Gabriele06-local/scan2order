@@ -484,16 +484,16 @@
       </div>
     {/if}
     <div class="space-y-2">
-      {#each tables as t (t.id)}
+      {#each tables as table (table.id)}
         <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
           <div>
-            <span class="text-sm font-medium text-gray-700">{t.label}</span>
-            <button onclick={() => copyToken(t.qr_token)} class="text-xs text-gray-400 hover:text-blue-600 ml-3 underline underline-offset-2">{t('admin.copy_qr_link')}</button>
+            <span class="text-sm font-medium text-gray-700">{table.label}</span>
+            <button onclick={() => copyToken(table.qr_token)} class="text-xs text-gray-400 hover:text-blue-600 ml-3 underline underline-offset-2">{t('admin.copy_qr_link')}</button>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick={() => downloadQr(t.id, t.label)} class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg font-medium">{t('admin.download_qr')}</button>
-            <button onclick={() => { editingTable = { id: t.id, label: t.label }; showTableForm = true; }} class="text-xs text-blue-500 hover:text-blue-700">{t('common.edit')}</button>
-            <button onclick={() => deleteTable(t.id)} class="text-xs text-red-400 hover:text-red-600">{t('common.delete')}</button>
+            <button onclick={() => downloadQr(table.id, table.label)} class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg font-medium">{t('admin.download_qr')}</button>
+            <button onclick={() => { editingTable = { id: table.id, label: table.label }; showTableForm = true; }} class="text-xs text-blue-500 hover:text-blue-700">{t('common.edit')}</button>
+            <button onclick={() => deleteTable(table.id)} class="text-xs text-red-400 hover:text-red-600">{t('common.delete')}</button>
           </div>
         </div>
       {/each}

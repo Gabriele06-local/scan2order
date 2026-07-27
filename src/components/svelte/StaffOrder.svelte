@@ -116,8 +116,8 @@
   <div class="mb-6">
     <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">{t('staff_order.select_table')}</label>
     <select bind:value={selectedTable} class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm">
-      {#each tables as t}
-        <option value={t.id}>{t.label}</option>
+      {#each tables as tb}
+        <option value={tb.id}>{tb.label}</option>
       {/each}
     </select>
   </div>
