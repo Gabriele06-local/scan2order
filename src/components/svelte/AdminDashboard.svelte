@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { supabase } from '../../lib/supabase';
+  import { t } from '../../lib/i18n/index.svelte.ts';
 
   let categories = $state<Array<{ id: string; name: string; sort_order: number }>>([]);
   let items = $state<Array<{ id: string; category_id: string; name: string; description: string | null; price_cents: number; available: boolean; image_url: string | null; kcal: number | null; allergens: string | null }>>([]);
@@ -13,7 +14,6 @@
   let showHistory = $state(false);
   let hoursData: Record<string, Array<{ open: string; close: string }>> = $state({});
   const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-  const dayLabels: Record<string, string> = { monday: 'Lunedì', tuesday: 'Martedì', wednesday: 'Mercoledì', thursday: 'Giovedì', friday: 'Venerdì', saturday: 'Sabato', sunday: 'Domenica' };
 
   // form state
   let editingCat = $state<{ id?: string; name: string }>({ name: '' });
@@ -26,6 +26,10 @@
   let showModForm = $state(false);
   let tenantSlug = $state('');
   let tenantSaved = $state(false);
+
+  // Photo upload state
+  let uploadingPhoto = $state(false);
+
   function toggleDay(day: string) {
     if (hoursData[day] && hoursData[day].length > 0) hoursData[day] = [];
     else hoursData[day] = [{ open: '09:00', close: '23:00' }];
@@ -67,7 +71,6 @@
       const t = ten.data as any;
       tenantName = t.name; waiterConfirm = t.waiter_confirmation_enabled; tenantSlug = t.slug; showHistory = t.show_order_history ?? false;
       hoursData = { ...(t.operating_hours ?? {}) };
-      // ensure all days exist
       for (const d of days) { if (!hoursData[d]) hoursData[d] = []; }
     }
   }
@@ -97,7 +100,7 @@
   }
 
   async function deleteCategory(id: string) {
-    if (!confirm('Eliminare categoria e tutti i piatti associati?')) return;
+    if (!confirm(t('admin.delete_category_confirm'))) return;
     await supabase.from('menu_categories').delete().eq('id', id);
     loadAll();
   }
@@ -110,6 +113,23 @@
       image_url: item.image_url ?? '', kcal: item.kcal ?? null, allergens: item.allergens ?? '',
     };
     showItemForm = true;
+  }
+
+  async function uploadItemPhoto(file: File) {
+    uploadingPhoto = true;
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `${tenantId}/${crypto.randomUUID()}.${ext}`;
+      const { data, error: uploadError } = await supabase.storage
+        .from('dish-images')
+        .upload(fileName, file, { contentType: file.type, upsert: false });
+      if (uploadError) { console.error('Upload error:', uploadError); return; }
+      const { data: { publicUrl } } = supabase.storage
+        .from('dish-images')
+        .getPublicUrl(fileName);
+      editingItem.image_url = publicUrl;
+    } catch (e) { console.error('Upload failed:', e); }
+    uploadingPhoto = false;
   }
 
   async function saveItem() {
@@ -134,7 +154,7 @@
   }
 
   async function deleteItem(id: string) {
-    if (!confirm('Eliminare questo piatto?')) return;
+    if (!confirm(t('admin.delete_item_confirm'))) return;
     await supabase.from('menu_items').delete().eq('id', id);
     loadAll();
   }
@@ -151,7 +171,7 @@
   }
 
   async function deleteTable(id: string) {
-    if (!confirm('Eliminare questo tavolo?')) return;
+    if (!confirm(t('admin.delete_table_confirm'))) return;
     await supabase.from('tables').delete().eq('id', id);
     loadAll();
   }
@@ -169,13 +189,20 @@
   }
 
   async function deleteModifier(id: string) {
-    if (!confirm('Eliminare questa modifica?')) return;
+    if (!confirm(t('admin.delete_modifier_confirm'))) return;
     await supabase.from('item_modifiers').delete().eq('id', id);
     loadAll();
   }
 
   function copyToken(token: string) {
     navigator.clipboard?.writeText(`${window.location.origin}/${tenantSlug}?table=${token}`);
+  }
+
+  function downloadQr(tableId: string, label: string) {
+    const a = document.createElement('a');
+    a.href = `/api/qr/${tableId}.png`;
+    a.download = `qr-${label.replace(/\s+/g, '-').toLowerCase()}.png`;
+    a.click();
   }
 
   // Export menu as JSON
@@ -205,27 +232,22 @@
     let data: any;
     try { data = JSON.parse(text); } catch { alert('File JSON non valido'); return; }
     if (!data.categories?.length) { alert('Nessuna categoria trovata nel file'); return; }
-    if (!confirm('Importare il menu? Le categorie, piatti e personalizzazioni esistenti verranno SOSTITUITI.')) return;
+    if (!confirm(t('admin.import_confirm'))) return;
 
-    // Delete existing
     await supabase.from('item_modifiers').delete().eq('tenant_id', tenantId);
     await supabase.from('menu_items').delete().eq('tenant_id', tenantId);
     await supabase.from('menu_categories').delete().eq('tenant_id', tenantId);
 
-    // Insert categories
     for (let i = 0; i < data.categories.length; i++) {
       const cat = data.categories[i];
       await supabase.from('menu_categories').insert({ tenant_id: tenantId, name: cat.name, sort_order: cat.sort_order ?? i + 1 });
     }
-    // Reload to get new IDs
     await loadAll();
-    // Match items to categories
     for (const item of (data.items ?? [])) {
       const cat = categories.find((c) => c.name === item.category);
       if (!cat) continue;
       await supabase.from('menu_items').insert({ tenant_id: tenantId, category_id: cat.id, name: item.name, description: item.description || null, price_cents: item.price_cents, available: item.available ?? true, image_url: item.image_url || null, kcal: item.kcal || null, allergens: item.allergens || null });
     }
-    // Match modifiers to items
     await loadAll();
     for (const mod of (data.modifiers ?? [])) {
       const item = items.find((i: any) => i.name === mod.item_name);
@@ -233,7 +255,7 @@
       await supabase.from('item_modifiers').insert({ tenant_id: tenantId, menu_item_id: item.id, name: mod.name, price_cents: mod.price_cents, sort_order: mod.sort_order ?? 0, available: mod.available ?? true });
     }
     await loadAll();
-    alert('Menu importato con successo!');
+    alert(t('admin.import_success'));
   }
 </script>
 
@@ -243,26 +265,26 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="font-bold text-gray-800 flex items-center gap-2">
         <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
-        Ristorante
+        {t('admin.restaurant')}
       </h2>
     </div>
     <div class="space-y-3">
       <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide block">
-        Nome ristorante
-        <input bind:value={tenantName} placeholder="es. Ristorante Gabriele" class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-normal not-italic text-gray-900" />
+        {t('admin.restaurant_name')}
+        <input bind:value={tenantName} class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-normal not-italic text-gray-900" />
       </label>
       <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide block">
-        Slug (parte dell'URL)
-        <input bind:value={tenantSlug} placeholder="es. ristorante-gabriele" class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono text-xs font-normal not-italic text-gray-900" />
+        {t('admin.slug')}
+        <input bind:value={tenantSlug} class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono text-xs font-normal not-italic text-gray-900" />
       </label>
-      <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide block">Orari apertura</span>
+      <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide block">{t('admin.hours')}</span>
       <div class="space-y-2">
         {#each days as day}
           <div class="flex items-center gap-2">
             <button onclick={() => toggleDay(day)} class="text-xs px-2 py-1 rounded-lg border {hoursData[day]?.length > 0 ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-400'} transition-colors shrink-0">
               {hoursData[day]?.length > 0 ? '✓' : '+'}
             </button>
-            <span class="text-xs text-gray-600 w-20 shrink-0">{dayLabels[day]}</span>
+            <span class="text-xs text-gray-600 w-20 shrink-0">{t('days.' + day)}</span>
             {#if hoursData[day]?.length > 0}
               <div class="flex flex-wrap gap-1 flex-1">
                 {#each hoursData[day] as slot, si}
@@ -281,15 +303,15 @@
       </div>
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <input type="checkbox" bind:checked={showHistory} class="rounded" />
-        Mostra storico ordini al cliente
+        {t('admin.show_history')}
       </label>
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <input type="checkbox" bind:checked={waiterConfirm} class="rounded" />
-        Conferma cameriere obbligatoria
+        {t('admin.waiter_confirm')}
       </label>
       <div class="flex items-center gap-2">
-        <button onclick={saveTenant} class="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">Salva</button>
-        {#if tenantSaved}<span class="text-xs text-emerald-600">Salvato!</span>{/if}
+        <button onclick={saveTenant} class="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">{t('common.save')}</button>
+        {#if tenantSaved}<span class="text-xs text-emerald-600">{t('common.saved')}</span>{/if}
       </div>
     </div>
   </section>
@@ -299,16 +321,16 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="font-bold text-gray-800 flex items-center gap-2">
         <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
-        Categorie
+        {t('admin.categories')}
       </h2>
       <button onclick={() => { editingCat = { name: '' }; showCatForm = !showCatForm; }} class="text-sm font-medium text-blue-600 hover:text-blue-800">
-        {showCatForm ? 'Annulla' : '+ Aggiungi'}
+        {showCatForm ? t('common.cancel') : '+ ' + t('common.add')}
       </button>
     </div>
     {#if showCatForm}
       <div class="flex gap-2 mb-4">
-        <input bind:value={editingCat.name} placeholder="Nome categoria" class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
-        <button onclick={saveCategory} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">Salva</button>
+        <input bind:value={editingCat.name} placeholder={t('admin.category_name')} class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+        <button onclick={saveCategory} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">{t('common.save')}</button>
       </div>
     {/if}
     <div class="space-y-2">
@@ -316,8 +338,8 @@
         <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
           <span class="text-sm font-medium text-gray-700">{cat.name}</span>
           <div class="flex items-center gap-2">
-            <button onclick={() => { editingCat = { id: cat.id, name: cat.name }; showCatForm = true; }} class="text-xs text-blue-500 hover:text-blue-700">Modifica</button>
-            <button onclick={() => deleteCategory(cat.id)} class="text-xs text-red-400 hover:text-red-600">Elimina</button>
+            <button onclick={() => { editingCat = { id: cat.id, name: cat.name }; showCatForm = true; }} class="text-xs text-blue-500 hover:text-blue-700">{t('common.edit')}</button>
+            <button onclick={() => deleteCategory(cat.id)} class="text-xs text-red-400 hover:text-red-600">{t('common.delete')}</button>
           </div>
         </div>
       {/each}
@@ -329,33 +351,39 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="font-bold text-gray-800 flex items-center gap-2">
         <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
-        Piatti
+        {t('admin.items')}
       </h2>
       <button onclick={() => { editingItem = { category_id: categories[0]?.id ?? '', name: '', description: '', price_cents: 0, available: true, image_url: '', kcal: null, allergens: '' }; showItemForm = !showItemForm; }} class="text-sm font-medium text-blue-600 hover:text-blue-800">
-        {showItemForm ? 'Annulla' : '+ Aggiungi'}
+        {showItemForm ? t('common.cancel') : '+ ' + t('common.add')}
       </button>
     </div>
     {#if showItemForm}
       <div class="bg-gray-50 rounded-xl p-4 mb-4 space-y-3">
         <select bind:value={editingItem.category_id} class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm">
-          <option value="">Seleziona categoria</option>
+          <option value="">{t('admin.select_category')}</option>
           {#each categories as cat}
             <option value={cat.id}>{cat.name}</option>
           {/each}
         </select>
-        <input bind:value={editingItem.name} placeholder="Nome piatto" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
-        <textarea bind:value={editingItem.description} placeholder="Descrizione" rows="2" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm"></textarea>
+        <input bind:value={editingItem.name} placeholder={t('admin.item_name')} class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
+        <textarea bind:value={editingItem.description} placeholder={t('admin.description')} rows="2" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm"></textarea>
         <div class="flex gap-2">
-          <input type="number" bind:value={editingItem.price_cents} placeholder="Prezzo in centesimi" class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm" />
+          <input type="number" bind:value={editingItem.price_cents} placeholder={t('admin.price_cents')} class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm" />
           <span class="text-sm text-gray-400 self-center">= {(editingItem.price_cents / 100).toFixed(2)}€</span>
         </div>
-        <input type="number" bind:value={editingItem.kcal} placeholder="Kcal (opzionale)" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
-        <input bind:value={editingItem.allergens} placeholder="Allergeni (es. Glutine, Lattosio)" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
-        <input bind:value={editingItem.image_url} placeholder="URL immagine (opzionale)" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
+        <input type="number" bind:value={editingItem.kcal} placeholder={t('admin.kcal')} class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
+        <input bind:value={editingItem.allergens} placeholder={t('admin.allergens')} class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
+        <div class="flex items-center gap-3">
+          <input bind:value={editingItem.image_url} placeholder={t('admin.image_url')} class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm" />
+          <label class="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-gray-200 cursor-pointer shrink-0">
+            {uploadingPhoto ? t('admin.image_uploading') : t('admin.image_upload')}
+            <input type="file" accept="image/*" onchange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) uploadItemPhoto(f); }} class="hidden" disabled={uploadingPhoto} />
+          </label>
+        </div>
         {#if editingItem.image_url}
-          <img src={editingItem.image_url} alt="anteprima" class="w-20 h-20 rounded-xl object-cover" />
+          <img src={editingItem.image_url} alt={t('admin.preview')} class="w-20 h-20 rounded-xl object-cover" />
         {/if}
-        <button onclick={saveItem} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">Salva</button>
+        <button onclick={saveItem} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">{t('common.save')}</button>
       </div>
     {/if}
     <div class="space-y-1">
@@ -374,16 +402,16 @@
                   <span class="text-xs text-gray-400 ml-2">{(item.price_cents / 100).toFixed(2)}€</span>
                   {#if item.kcal}<span class="text-xs text-gray-400 ml-1">{item.kcal} kcal</span>{/if}
                   {#if !item.available}
-                    <span class="text-xs text-red-400 ml-2">(non disp.)</span>
+                    <span class="text-xs text-red-400 ml-2">({t('admin.not_available')})</span>
                   {/if}
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <button onclick={() => toggleItem(item.id, !item.available)} class="text-xs {item.available ? 'text-amber-500 hover:text-amber-700' : 'text-emerald-500 hover:text-emerald-700'}">
-                  {item.available ? 'Nascondi' : 'Mostra'}
+                  {item.available ? t('admin.hide') : t('admin.show')}
                 </button>
-                <button onclick={() => editItem(item)} class="text-xs text-blue-500 hover:text-blue-700">Modifica</button>
-                <button onclick={() => deleteItem(item.id)} class="text-xs text-red-400 hover:text-red-600">Elimina</button>
+                <button onclick={() => editItem(item)} class="text-xs text-blue-500 hover:text-blue-700">{t('common.edit')}</button>
+                <button onclick={() => deleteItem(item.id)} class="text-xs text-red-400 hover:text-red-600">{t('common.delete')}</button>
               </div>
             </div>
           {/each}
@@ -397,26 +425,26 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="font-bold text-gray-800 flex items-center gap-2">
         <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
-        Personalizzazioni
+        {t('admin.modifiers')}
       </h2>
       <button onclick={() => { editingMod = { menu_item_id: items[0]?.id ?? '', name: '', price_cents: 0 }; showModForm = !showModForm; }} class="text-sm font-medium text-blue-600 hover:text-blue-800">
-        {showModForm ? 'Annulla' : '+ Aggiungi'}
+        {showModForm ? t('common.cancel') : '+ ' + t('common.add')}
       </button>
     </div>
     {#if showModForm}
       <div class="bg-gray-50 rounded-xl p-4 mb-4 space-y-3">
         <select bind:value={editingMod.menu_item_id} class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm">
-          <option value="">Seleziona piatto</option>
+          <option value="">{t('admin.select_item')}</option>
           {#each items as item}
             <option value={item.id}>{item.name}</option>
           {/each}
         </select>
-        <input bind:value={editingMod.name} placeholder="Nome (es. Mozzarella extra)" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
+        <input bind:value={editingMod.name} placeholder={t('admin.modifier_name')} class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
         <div class="flex gap-2">
-          <input type="number" bind:value={editingMod.price_cents} placeholder="Prezzo in centesimi" class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm" />
+          <input type="number" bind:value={editingMod.price_cents} placeholder={t('admin.price_cents')} class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm" />
           <span class="text-sm text-gray-400 self-center">= {(editingMod.price_cents / 100).toFixed(2)}€</span>
         </div>
-        <button onclick={saveModifier} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">Salva</button>
+        <button onclick={saveModifier} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">{t('common.save')}</button>
       </div>
     {/if}
     <div class="space-y-1">
@@ -427,13 +455,13 @@
           {#each itemMods as mod}
             <div class="flex items-center justify-between py-2 px-2 rounded-lg">
               <span class="text-sm text-gray-700">{mod.name} <span class="text-xs text-gray-400">+{(mod.price_cents / 100).toFixed(2)}€</span></span>
-              <button onclick={() => deleteModifier(mod.id)} class="text-xs text-red-400 hover:text-red-600">Elimina</button>
+              <button onclick={() => deleteModifier(mod.id)} class="text-xs text-red-400 hover:text-red-600">{t('common.delete')}</button>
             </div>
           {/each}
         {/if}
       {/each}
       {#if modifiers.length === 0}
-        <p class="text-gray-400 text-sm text-center py-4">Nessuna personalizzazione. Aggiungine una per i tuoi piatti.</p>
+        <p class="text-gray-400 text-sm text-center py-4">{t('admin.no_modifiers')}</p>
       {/if}
     </div>
   </section>
@@ -443,16 +471,16 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="font-bold text-gray-800 flex items-center gap-2">
         <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
-        Tavoli
+        {t('admin.tables')}
       </h2>
       <button onclick={() => { editingTable = { label: '' }; showTableForm = !showTableForm; }} class="text-sm font-medium text-blue-600 hover:text-blue-800">
-        {showTableForm ? 'Annulla' : '+ Aggiungi'}
+        {showTableForm ? t('common.cancel') : '+ ' + t('common.add')}
       </button>
     </div>
     {#if showTableForm}
       <div class="flex gap-2 mb-4">
-        <input bind:value={editingTable.label} placeholder="Es. Tavolo 3" class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
-        <button onclick={saveTable} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">Salva</button>
+        <input bind:value={editingTable.label} placeholder={t('admin.table_label')} class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+        <button onclick={saveTable} class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">{t('common.save')}</button>
       </div>
     {/if}
     <div class="space-y-2">
@@ -460,11 +488,12 @@
         <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
           <div>
             <span class="text-sm font-medium text-gray-700">{t.label}</span>
-            <button onclick={() => copyToken(t.qr_token)} class="text-xs text-gray-400 hover:text-blue-600 ml-3 underline underline-offset-2">Copia link QR</button>
+            <button onclick={() => copyToken(t.qr_token)} class="text-xs text-gray-400 hover:text-blue-600 ml-3 underline underline-offset-2">{t('admin.copy_qr_link')}</button>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick={() => { editingTable = { id: t.id, label: t.label }; showTableForm = true; }} class="text-xs text-blue-500 hover:text-blue-700">Modifica</button>
-            <button onclick={() => deleteTable(t.id)} class="text-xs text-red-400 hover:text-red-600">Elimina</button>
+            <button onclick={() => downloadQr(t.id, t.label)} class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg font-medium">{t('admin.download_qr')}</button>
+            <button onclick={() => { editingTable = { id: t.id, label: t.label }; showTableForm = true; }} class="text-xs text-blue-500 hover:text-blue-700">{t('common.edit')}</button>
+            <button onclick={() => deleteTable(t.id)} class="text-xs text-red-400 hover:text-red-600">{t('common.delete')}</button>
           </div>
         </div>
       {/each}
@@ -476,14 +505,14 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="font-bold text-gray-800 flex items-center gap-2">
         <span class="w-1 h-5 bg-blue-600 rounded-full inline-block"></span>
-        Esporta / Importa Menu
+        {t('admin.export_import')}
       </h2>
     </div>
-    <p class="text-xs text-gray-400 mb-4">Esporta il menu come JSON per salvarlo o trasferirlo. Importa un file JSON per sostituire tutto il menu (categorie, piatti e personalizzazioni).</p>
+    <p class="text-xs text-gray-400 mb-4">{t('admin.export_desc')}</p>
     <div class="flex items-center gap-3">
-      <button onclick={exportMenu} class="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">Scarica JSON</button>
+      <button onclick={exportMenu} class="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">{t('admin.download_json')}</button>
       <label class="bg-gray-100 text-gray-700 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-200 cursor-pointer">
-        Carica JSON
+        {t('admin.upload_json')}
         <input type="file" accept=".json" onchange={importMenu} class="hidden" />
       </label>
     </div>

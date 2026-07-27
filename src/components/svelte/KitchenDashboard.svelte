@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { supabase } from '../../lib/supabase';
   import { transitionOrderStatus } from '../../lib/orders';
+  import { t } from '../../lib/i18n/index.svelte.ts';
 
   interface OrderRow {
     id: string; table_label: string; status: string;
@@ -66,7 +67,9 @@
         document.head.appendChild(s);
         document.body.appendChild(oldBdg);
       }
-      oldBdg.textContent = confirmedNow === 1 ? '1 nuovo ordine' : `${confirmedNow} nuovi ordini`;
+      oldBdg.textContent = confirmedNow === 1
+        ? `1 ${t('kitchen.new_order')}`
+        : `${confirmedNow} ${t('kitchen.new_orders')}`;
     }
 
     orders = await Promise.all((data ?? []).map(async (o: any) => {
@@ -98,7 +101,8 @@
   function printOrders() {
     const printWin = window.open('', '_blank');
     if (!printWin) return;
-    printWin.document.write(`<html><head><title>Ordini</title><style>
+    const now = new Date().toLocaleString(getLocale() === 'en' ? 'en-US' : 'it-IT');
+    printWin.document.write(`<html><head><title>${t('kitchen.title')}</title><style>
       body{font-family:monospace;padding:20px;font-size:14px}
       h1{font-size:18px;margin-bottom:20px}
       .order{border-bottom:2px dashed #999;padding:12px 0;margin-bottom:12px}
@@ -109,21 +113,25 @@
       .time{color:#666;font-size:12px}
       @media print{body{padding:10px}.order{break-inside:avoid}}
     </style></head><body>
-    <h1>Ordini in cucina</h1>
+    <h1>${t('kitchen.title')}</h1>
     ${orders.map((o: any) => `
       <div class="order">
         <div class="header">${o.table_label}</div>
-        <div class="time">${new Date(o.created_at).toLocaleString('it-IT')}</div>
+        <div class="time">${now}</div>
         ${o.items.map((i: any) => `
           <div class="item">×${i.quantity} ${i.name}</div>
           ${i.modifiers ? `<div class="mod">+ ${i.modifiers}</div>` : ''}
-          ${i.notes ? `<div class="mod">Note: ${i.notes}</div>` : ''}
+          ${i.notes ? `<div class="mod">${t('kitchen.notes')}: ${i.notes}</div>` : ''}
         `).join('')}
       </div>
     `).join('')}
     <script>window.print();window.close();<\/script>
     </body></html>`);
     printWin.document.close();
+  }
+
+  function getLocale() {
+    try { return (window as any).__locale || 'it'; } catch { return 'it'; }
   }
 
   let confirmedOrders = $derived(orders.filter((o) => o.status === 'confirmed'));
@@ -133,7 +141,7 @@
 <div class="flex justify-end mb-4">
   <button onclick={printOrders} class="text-sm bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-sm flex items-center gap-2">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-    Stampa ordini
+    {t('kitchen.print')}
   </button>
 </div>
 
@@ -141,11 +149,11 @@
   <section class="bg-white rounded-2xl border border-blue-200 p-5 shadow-sm">
     <div class="flex items-center gap-2 mb-4">
       <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-      <h2 class="font-bold text-blue-800">Nuovi ordini</h2>
+      <h2 class="font-bold text-blue-800">{t('kitchen.new_orders')}</h2>
       <span class="ml-auto text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">{confirmedOrders.length}</span>
     </div>
     {#if confirmedOrders.length === 0}
-      <p class="text-gray-400 text-sm text-center py-8">Nessun nuovo ordine.</p>
+      <p class="text-gray-400 text-sm text-center py-8">{t('kitchen.no_new')}</p>
     {:else}
       <div class="space-y-3">
         {#each confirmedOrders as o (o.id)}
@@ -153,11 +161,11 @@
             <div class="flex items-start justify-between mb-2">
               <div class="flex items-center gap-2">
                 <span class="text-lg font-bold text-gray-900">{o.table_label}</span>
-                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString(getLocale() === 'en' ? 'en-US' : 'it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <button onclick={() => startCooking(o.id)}
                 class="text-sm font-semibold px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-all shadow-sm">
-                In preparazione
+                {t('kitchen.start_cooking')}
               </button>
             </div>
             <div class="space-y-1 mb-2">
@@ -168,7 +176,7 @@
                     <span class="text-xs text-gray-400 ml-2">+{item.modifiers}</span>
                   {/if}
                   {#if item.notes}
-                    <p class="text-xs text-gray-400 ml-4">Note: {item.notes}</p>
+                    <p class="text-xs text-gray-400 ml-4">{t('kitchen.notes')}: {item.notes}</p>
                   {/if}
                 </div>
               {/each}
@@ -183,11 +191,11 @@
   <section class="bg-white rounded-2xl border border-indigo-200 p-5 shadow-sm">
     <div class="flex items-center gap-2 mb-4">
       <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-      <h2 class="font-bold text-indigo-800">In preparazione</h2>
+      <h2 class="font-bold text-indigo-800">{t('kitchen.in_progress')}</h2>
       <span class="ml-auto text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full">{cookingOrders.length}</span>
     </div>
     {#if cookingOrders.length === 0}
-      <p class="text-gray-400 text-sm text-center py-8">Niente in preparazione.</p>
+      <p class="text-gray-400 text-sm text-center py-8">{t('kitchen.no_cooking')}</p>
     {:else}
       <div class="space-y-3">
         {#each cookingOrders as o (o.id)}
@@ -195,11 +203,11 @@
             <div class="flex items-start justify-between mb-2">
               <div class="flex items-center gap-2">
                 <span class="text-lg font-bold text-gray-900">{o.table_label}</span>
-                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString(getLocale() === 'en' ? 'en-US' : 'it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <button onclick={() => markReady(o.id)}
                 class="text-sm font-semibold px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-sm">
-                Pronto
+                {t('kitchen.mark_ready')}
               </button>
             </div>
             <div class="space-y-1 mb-2">
@@ -210,7 +218,7 @@
                     <span class="text-xs text-gray-400 ml-2">+{item.modifiers}</span>
                   {/if}
                   {#if item.notes}
-                    <p class="text-xs text-gray-400 ml-4">Note: {item.notes}</p>
+                    <p class="text-xs text-gray-400 ml-4">{t('kitchen.notes')}: {item.notes}</p>
                   {/if}
                 </div>
               {/each}

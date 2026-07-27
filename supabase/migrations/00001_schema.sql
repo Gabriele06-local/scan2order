@@ -211,6 +211,29 @@ create policy "staff can update orders for their tenant"
     )
   );
 
+-- Storage bucket for dish images
+insert into storage.buckets (id, name, public)
+values ('dish-images', 'dish-images', true)
+on conflict (id) do nothing;
+
+create policy "Dish images public select"
+  on storage.objects for select
+  using (bucket_id = 'dish-images');
+
+create policy "Staff upload dish images"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'dish-images'
+    and exists (select 1 from staff where staff.auth_user_id = auth.uid())
+  );
+
+create policy "Staff delete dish images"
+  on storage.objects for delete
+  using (
+    bucket_id = 'dish-images'
+    and exists (select 1 from staff where staff.auth_user_id = auth.uid())
+  );
+
 -- Function: transition_order_status
 
 create or replace function transition_order_status(

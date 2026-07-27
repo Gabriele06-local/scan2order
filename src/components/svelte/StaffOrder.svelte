@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { supabase } from '../../lib/supabase';
+  import { t } from '../../lib/i18n/index.svelte.ts';
 
   let tables: Array<{ id: string; label: string }> = $state([]);
   let categories: Array<{ id: string; name: string; sort_order: number }> = $state([]);
@@ -24,7 +25,6 @@
   }, 0));
   let count = $derived(cartItems.reduce((s, i) => s + i.quantity, 0));
 
-  // Persist cart across navigation
   function saveCart() {
     sessionStorage.setItem('staff_cart', JSON.stringify(cartItems));
   }
@@ -104,17 +104,17 @@
 </script>
 
 {#if loading}
-  <p class="text-gray-400 text-sm text-center py-12">Caricamento...</p>
+  <p class="text-gray-400 text-sm text-center py-12">{t('common.loading')}</p>
 {:else}
   {#if done}
     <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-emerald-800 text-sm font-medium text-center mb-6">
-      Ordine inviato direttamente in cucina!
-      <button onclick={() => done = false} class="block text-emerald-600 underline mt-1">Nuovo ordine</button>
+      {t('staff_order.order_sent')}
+      <button onclick={() => done = false} class="block text-emerald-600 underline mt-1">{t('staff_order.new_order')}</button>
     </div>
   {/if}
 
   <div class="mb-6">
-    <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">Tavolo</label>
+    <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">{t('staff_order.select_table')}</label>
     <select bind:value={selectedTable} class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm">
       {#each tables as t}
         <option value={t.id}>{t.label}</option>
@@ -162,7 +162,7 @@
     <div class="fixed bottom-6 left-4 right-4 max-w-lg mx-auto z-50" style="animation: slideUp 0.25s ease-out">
       <button onclick={submitOrder} disabled={submitting}
         class="w-full bg-blue-600 text-white rounded-2xl py-4 px-6 font-bold shadow-2xl hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 transition-all flex items-center justify-between">
-        <span>{count} {count === 1 ? 'piatto' : 'piatti'}</span>
+        <span>{count} {count === 1 ? t('cart.dish') : t('cart.dishes')}</span>
         <span>{(total / 100).toFixed(2)}€</span>
       </button>
     </div>
@@ -185,7 +185,7 @@
                 </button>
               </div>
             </div>
-            <input bind:value={item.notes} placeholder="Note" class="w-full mt-2 border border-gray-200 rounded-lg px-3 py-1.5 text-xs" />
+            <input bind:value={item.notes} placeholder={t('cart.notes_placeholder')} class="w-full mt-2 border border-gray-200 rounded-lg px-3 py-1.5 text-xs" />
             {#if getMods(item.id).length > 0}
               <div class="flex flex-wrap gap-1.5 mt-2">
                 {#each getMods(item.id) as mod}

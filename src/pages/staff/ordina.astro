@@ -2,6 +2,7 @@
 import Layout from '../../components/astro/Layout.astro';
 import StaffOrder from '../../components/svelte/StaffOrder.svelte';
 import LogoutButton from '../../components/svelte/LogoutButton.svelte';
+import LangToggle from '../../components/svelte/LangToggle.svelte';
 import Clock from '../../components/svelte/Clock.svelte';
 ---
 
@@ -15,6 +16,7 @@ import Clock from '../../components/svelte/Clock.svelte';
         <h1 class="text-lg font-bold">Ordina per un tavolo</h1>
       </div>
       <div class="flex items-center gap-4">
+        <LangToggle client:load />
         <Clock client:load />
         <LogoutButton client:load />
       </div>

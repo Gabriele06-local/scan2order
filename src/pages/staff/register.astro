@@ -1,6 +1,6 @@
 ---
 import Layout from '../../components/astro/Layout.astro';
-import StaffLogin from '../../components/svelte/StaffLogin.svelte';
+import RegisterWizard from '../../components/svelte/RegisterWizard.svelte';
 import LangToggle from '../../components/svelte/LangToggle.svelte';
 ---
 
@@ -9,8 +9,6 @@ import LangToggle from '../../components/svelte/LangToggle.svelte';
     <div class="absolute top-4 right-4">
       <LangToggle client:load />
     </div>
-    <img src="/favicon/favicon-96x96.png" alt="QR" class="w-16 h-16 mb-6" />
-    <StaffLogin client:load />
-    <a href="/staff/register" class="mt-4 text-sm text-blue-600 hover:underline">Crea il tuo ristorante</a>
+    <RegisterWizard client:load />
   </main>
 </Layout>

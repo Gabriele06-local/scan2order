@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { supabase } from '../../lib/supabase';
+  import { t } from '../../lib/i18n/index.svelte.ts';
 
   let stats = $state({ today: 0, pending: 0, total: 0 });
 
@@ -31,14 +32,14 @@
 <div class="grid grid-cols-3 gap-3">
   <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
     <p class="text-2xl font-bold text-gray-900 tabular-nums">{stats.today}</p>
-    <p class="text-xs text-gray-400 mt-0.5">Ordini oggi</p>
+    <p class="text-xs text-gray-400 mt-0.5">{t('stats.orders_today')}</p>
   </div>
   <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
     <p class="text-2xl font-bold text-amber-600 tabular-nums">{stats.pending}</p>
-    <p class="text-xs text-gray-400 mt-0.5">In attesa</p>
+    <p class="text-xs text-gray-400 mt-0.5">{t('stats.pending')}</p>
   </div>
   <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
     <p class="text-2xl font-bold text-emerald-600 tabular-nums">{(stats.total / 100).toFixed(2)}€</p>
-    <p class="text-xs text-gray-400 mt-0.5">Incasso oggi</p>
+    <p class="text-xs text-gray-400 mt-0.5">{t('stats.revenue_today')}</p>
   </div>
 </div>

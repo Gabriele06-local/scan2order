@@ -2,6 +2,7 @@
   import { createOrder } from '../../lib/orders';
   import { onMount } from 'svelte';
   import { supabase } from '../../lib/supabase';
+  import { t, getLocale } from '../../lib/i18n/index.svelte.ts';
 
   let {
     tenantId,
@@ -39,8 +40,6 @@
     showOrderHistory?: boolean;
   } = $props();
 
-  // using props directly instead of cache to avoid Svelte 5 state_referenced_locally warning
-
   let cartItems: Array<{
     id: string;
     name: string;
@@ -57,6 +56,7 @@
   let recentOrders: Array<{ id: string; total_cents: number; created_at: string; status: string }> = $state([]);
   let showHistory = $state(false);
 
+  let locale = $derived(getLocale());
   let total = $derived(cartItems.reduce((sum, i) => {
     const modTotal = i.selectedModifiers.reduce((m, mod) => m + mod.price_cents, 0);
     return sum + i.quantity * (i.unit_price_cents + modTotal);
@@ -71,7 +71,6 @@
       .order('created_at', { ascending: false })
       .limit(10);
     if (data) recentOrders = data as any;
-    // Sync any queued offline orders
     const q = getQueue();
     offlineQueued = q.length;
     if (q.length > 0 && navigator.onLine) syncQueue();
@@ -143,7 +142,7 @@
     const result = await createOrder(tenantId, tableId, payload);
     submitting = false;
     if (result) { done = true; cartItems = []; recentOrders = [{ id: result, total_cents: total, created_at: new Date().toISOString(), status: 'submitted' }, ...recentOrders]; }
-    else { error = "Errore nell'invio. Riprova."; }
+    else { error = t('cart.error_submit'); }
   }
 
   function isOpen(): boolean | null {
@@ -158,23 +157,18 @@
   }
 
   let openStatus = $derived(isOpen());
-
-  const statusConfig: Record<string, string> = {
-    submitted: 'Inviato', pending_waiter_review: 'Da confermare', confirmed: 'Confermato',
-    in_kitchen: 'In preparazione', ready: 'Pronto', served: 'Servito',
-  };
 </script>
 
 {#if offlineQueued > 0}
   <div class="fixed top-4 left-4 right-4 max-w-lg mx-auto bg-amber-500 text-white rounded-2xl py-3 px-5 text-center font-semibold z-50 shadow-lg" style="animation: fadeIn 0.3s ease-out">
-    {offlineQueued} ordine{offlineQueued > 1 ? 'i' : ''} in coda — verranno inviati appena torni online.
+    {offlineQueued} {offlineQueued > 1 ? t('cart.orders_pending_plural') : t('cart.orders_pending')}
   </div>
 {/if}
 
 {#if done}
   <div class="fixed top-4 left-4 right-4 max-w-lg mx-auto bg-emerald-600 text-white rounded-2xl py-3 px-5 text-center font-semibold z-50 shadow-lg" style="animation: fadeIn 0.3s ease-out">
-    ✓ Ordine inviato! Il cameriere lo riceverà a breve.
-    <button onclick={() => done = false} class="block text-emerald-200 text-xs mt-1 underline">Continua a ordinare</button>
+    ✓ {t('cart.order_sent')}
+    <button onclick={() => done = false} class="block text-emerald-200 text-xs mt-1 underline">{t('cart.continue_ordering')}</button>
   </div>
 {/if}
 
@@ -183,23 +177,23 @@
   <h1 class="text-2xl font-bold text-gray-900">{tenantName}</h1>
   <p class="text-sm text-gray-400 mt-1">{tableLabel}</p>
   {#if openStatus === false}
-    <p class="text-xs text-red-500 mt-2 font-medium">Ristorante chiuso — non è possibile ordinare</p>
+    <p class="text-xs text-red-500 mt-2 font-medium">{t('cart.restaurant_closed')}</p>
   {:else if openStatus === true}
-    <p class="text-xs text-emerald-600 mt-2 font-medium">Aperto ora</p>
+    <p class="text-xs text-emerald-600 mt-2 font-medium">{t('cart.open_now')}</p>
   {/if}
 </div>
 
 {#if showOrderHistory && recentOrders.length > 0}
   <button onclick={() => showHistory = !showHistory} class="text-xs text-blue-600 hover:text-blue-800 font-medium mb-6 block">
-    {showHistory ? 'Nascondi' : 'Mostra'} ultimi ordini ({recentOrders.length})
+    {showHistory ? t('cart.hide_history') : t('cart.show_history')} ({recentOrders.length})
   </button>
   {#if showHistory}
     <div class="bg-gray-50 rounded-xl p-4 mb-6 space-y-2">
       {#each recentOrders as o}
         <div class="flex justify-between text-sm">
           <span class="text-gray-600">{(o.total_cents / 100).toFixed(2)}€</span>
-          <span class="text-gray-400 text-xs self-center">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
-          <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">{statusConfig[o.status] ?? o.status}</span>
+          <span class="text-gray-400 text-xs self-center">{new Date(o.created_at).toLocaleTimeString(locale === 'en' ? 'en-US' : 'it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
+          <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">{t('order_status.' + o.status)}</span>
         </div>
       {/each}
     </div>
@@ -258,7 +252,7 @@
     >
       <span class="flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-        <span>{count} {count === 1 ? 'piatto' : 'piatti'}</span>
+        <span>{count} {count === 1 ? t('cart.dish') : t('cart.dishes')}</span>
       </span>
       <span>{(total / 100).toFixed(2)}€</span>
     </button>
@@ -281,13 +275,13 @@
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <span class="text-gray-600">{(item.unit_price_cents * item.quantity / 100).toFixed(2)}€</span>
-              <button onclick={() => removeItem(i)} aria-label="Rimuovi" class="text-gray-300 hover:text-red-400 transition-colors">
+              <button onclick={() => removeItem(i)} aria-label={t('cart.remove')} class="text-gray-300 hover:text-red-400 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
             </div>
           </div>
           <!-- Notes -->
-          <input bind:value={item.notes} placeholder="Note (es. senza cipolla)" class="w-full mt-2 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+          <input bind:value={item.notes} placeholder={t('cart.notes_placeholder')} class="w-full mt-2 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           <!-- Modifiers -->
           {#if getModifiersForItem(item.id).length > 0}
             <div class="flex flex-wrap gap-1.5 mt-2">
@@ -308,7 +302,7 @@
       <p class="text-red-500 text-xs">{error}</p>
     {/if}
     {#if openStatus === false}
-      <p class="text-amber-600 text-xs font-medium">Il ristorante è chiuso</p>
+      <p class="text-amber-600 text-xs font-medium">{t('cart.closed')}</p>
     {/if}
   </div>
 {/if}

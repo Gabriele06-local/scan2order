@@ -494,7 +494,34 @@ drop policy if exists "order_items insert with valid order" on order_items;
 -- Revoke EXECUTE on transition_order_status from anon (only staff should call it)
 revoke execute on function public.transition_order_status from anon;
 
--- 6. Demo staff accounts
+-- 6. Storage bucket for dish images
+insert into storage.buckets (id, name, public)
+values ('dish-images', 'dish-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Dish images public select" on storage.objects;
+create policy "Dish images public select" on storage.objects
+  for select using (bucket_id = 'dish-images');
+
+drop policy if exists "Staff upload dish images" on storage.objects;
+create policy "Staff upload dish images" on storage.objects
+  for insert with check (
+    bucket_id = 'dish-images'
+    and exists (
+      select 1 from staff where staff.auth_user_id = (select auth.uid())
+    )
+  );
+
+drop policy if exists "Staff delete dish images" on storage.objects;
+create policy "Staff delete dish images" on storage.objects
+  for delete using (
+    bucket_id = 'dish-images'
+    and exists (
+      select 1 from staff where staff.auth_user_id = (select auth.uid())
+    )
+  );
+
+-- 7. Demo staff accounts
 -- Crea gli utenti auth su Supabase Dashboard -> Authentication -> Users:
 --   - admin@demo.it  (password: demo1234)
 --   - cameriere@demo.it (password: demo1234)

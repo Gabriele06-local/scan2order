@@ -1,6 +1,7 @@
 ---
 import Layout from '../../components/astro/Layout.astro';
 import LogoutButton from '../../components/svelte/LogoutButton.svelte';
+import LangToggle from '../../components/svelte/LangToggle.svelte';
 import StatsBar from '../../components/svelte/StatsBar.svelte';
 import AdminDashboard from '../../components/svelte/AdminDashboard.svelte';
 import StaffManager from '../../components/svelte/StaffManager.svelte';
@@ -16,6 +17,7 @@ import Clock from '../../components/svelte/Clock.svelte';
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg>
           Ordina
         </a>
+        <LangToggle client:load />
         <Clock client:load />
         <LogoutButton client:load />
       </div>

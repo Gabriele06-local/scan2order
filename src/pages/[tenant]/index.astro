@@ -1,6 +1,7 @@
 ---
 import Layout from '../../components/astro/Layout.astro';
 import Cart from '../../components/svelte/Cart.svelte';
+import LangToggle from '../../components/svelte/LangToggle.svelte';
 import { getMenuForTenant, getTableByToken } from '../../lib/orders';
 import { supabase } from '../../lib/supabase';
 
@@ -43,6 +44,9 @@ const { data: ten } = await supabase
 
 <Layout hideHeader={true}>
   <main class="max-w-lg mx-auto p-4 pb-32">
+    <div class="flex justify-end mb-2">
+      <LangToggle client:load />
+    </div>
     <Cart
       client:load
       tenantId={tenantId}

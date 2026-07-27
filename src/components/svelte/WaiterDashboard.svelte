@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { supabase } from '../../lib/supabase';
   import { transitionOrderStatus } from '../../lib/orders';
+  import { t } from '../../lib/i18n/index.svelte.ts';
 
   interface OrderItem {
     name: string; quantity: number; notes?: string; modifiers?: string;
@@ -16,7 +17,6 @@
   let prevCount = 0;
 
   function notify() {
-    // Sound
     try {
       const ctx = new AudioContext();
       const osc = ctx.createOscillator();
@@ -34,8 +34,11 @@
         osc2.start(); osc2.stop(ctx.currentTime + 0.2);
       }, 200);
     } catch {}
-    // Vibration
     try { navigator.vibrate?.(200); } catch {}
+  }
+
+  function getLocale() {
+    try { return (window as any).__locale || 'it'; } catch { return 'it'; }
   }
 
   onMount(() => {
@@ -57,9 +60,7 @@
     const pendingNow = (data ?? []).filter((o: any) => o.status === 'submitted' || o.status === 'pending_waiter_review').length;
     if (pendingNow > prevCount && prevCount > 0) notify();
     prevCount = pendingNow;
-    // Badge title
     document.title = pendingNow > 0 ? `(${pendingNow}) QR Menu` : 'QR Menu';
-    // Favicon badge
     let oldBdg = document.getElementById('order-badge');
     if (oldBdg && pendingNow === 0) oldBdg.remove();
     if (pendingNow > 0) {
@@ -73,7 +74,9 @@
         document.head.appendChild(s);
         document.body.appendChild(oldBdg);
       }
-      oldBdg.textContent = pendingNow === 1 ? '1 nuovo ordine' : `${pendingNow} nuovi ordini`;
+      oldBdg.textContent = pendingNow === 1
+        ? `1 ${t('waiter.new_order')}`
+        : `${pendingNow} ${t('waiter.new_orders')}`;
     }
 
     orders = await Promise.all((data ?? []).map(async (o: any) => {
@@ -113,11 +116,11 @@
   <section class="bg-white rounded-2xl border border-amber-200 p-5 shadow-sm">
     <div class="flex items-center gap-2 mb-4">
       <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-      <h2 class="font-bold text-amber-800">Da confermare</h2>
+      <h2 class="font-bold text-amber-800">{t('waiter.to_confirm')}</h2>
       <span class="ml-auto text-xs bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full">{pendingOrders.length}</span>
     </div>
     {#if pendingOrders.length === 0}
-      <p class="text-gray-400 text-sm text-center py-8">Nessun ordine in attesa.</p>
+      <p class="text-gray-400 text-sm text-center py-8">{t('waiter.no_pending')}</p>
     {:else}
       <div class="space-y-3">
         {#each pendingOrders as o (o.id)}
@@ -125,11 +128,11 @@
             <div class="flex items-start justify-between mb-2">
               <div class="flex items-center gap-2">
                 <span class="text-lg font-bold text-gray-900">{o.table_label}</span>
-                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString(getLocale() === 'en' ? 'en-US' : 'it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <button onclick={() => confirmOrder(o)}
                 class="text-sm font-semibold px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-all shadow-sm whitespace-nowrap">
-                Conferma
+                {t('waiter.confirm')}
               </button>
             </div>
             <div class="space-y-1 mb-2">
@@ -140,7 +143,7 @@
                     <span class="text-xs text-gray-400 ml-2">+{item.modifiers}</span>
                   {/if}
                   {#if item.notes}
-                    <p class="text-xs text-gray-400 ml-4">Note: {item.notes}</p>
+                    <p class="text-xs text-gray-400 ml-4">{t('waiter.notes')}: {item.notes}</p>
                   {/if}
                 </div>
               {/each}
@@ -155,11 +158,11 @@
   <section class="bg-white rounded-2xl border border-emerald-200 p-5 shadow-sm">
     <div class="flex items-center gap-2 mb-4">
       <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-      <h2 class="font-bold text-emerald-800">Da servire</h2>
+      <h2 class="font-bold text-emerald-800">{t('waiter.to_serve')}</h2>
       <span class="ml-auto text-xs bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">{readyOrders.length}</span>
     </div>
     {#if readyOrders.length === 0}
-      <p class="text-gray-400 text-sm text-center py-8">Nessun ordine pronto.</p>
+      <p class="text-gray-400 text-sm text-center py-8">{t('waiter.no_ready')}</p>
     {:else}
       <div class="space-y-3">
         {#each readyOrders as o (o.id)}
@@ -167,11 +170,11 @@
             <div class="flex items-start justify-between mb-2">
               <div class="flex items-center gap-2">
                 <span class="text-lg font-bold text-gray-900">{o.table_label}</span>
-                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span class="text-xs text-gray-400">{new Date(o.created_at).toLocaleTimeString(getLocale() === 'en' ? 'en-US' : 'it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <button onclick={() => markServed(o.id)}
                 class="text-sm font-semibold px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-sm whitespace-nowrap">
-                Servito
+                {t('waiter.served')}
               </button>
             </div>
             <div class="space-y-1 mb-2">
@@ -182,7 +185,7 @@
                     <span class="text-xs text-gray-400 ml-2">+{item.modifiers}</span>
                   {/if}
                   {#if item.notes}
-                    <p class="text-xs text-gray-400 ml-4">Note: {item.notes}</p>
+                    <p class="text-xs text-gray-400 ml-4">{t('waiter.notes')}: {item.notes}</p>
                   {/if}
                 </div>
               {/each}

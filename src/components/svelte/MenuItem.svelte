@@ -6,14 +6,6 @@
     priceCents: number;
   } = $props();
 
-  function add() {
-    const event = new CustomEvent('additem', {
-      bubbles: true,
-      detail: { id, name, priceCents },
-    });
-    this?.dispatchEvent(event);
-  }
-
   function handleClick(e: MouseEvent) {
     const target = e.currentTarget as HTMLElement;
     const event = new CustomEvent('additem', {

@@ -1,28 +1,435 @@
-# scan2order — QR Menu per ristoranti
+# scan2order — QR Menu for Restaurants
 
-**I clienti inquadrano il QR sul tavolo e ordinano dal telefono. Zero carta, zero app.**
+**Customers scan the QR code on their table and order from their phone. Zero paper, zero apps.**
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![Stack](https://img.shields.io/badge/stack-Astro_Svelte_Supabase-8B5CF6)
 
-Piatti con foto, calorie e allergeni. Extra e note per ogni ordine. Le comande arrivano in tempo reale in cucina e al cameriere. Tutto gratis, open source.
+Dishes with photos, calories, allergens. Extras and notes per order. Orders arrive in real-time to kitchen and waiters. Free, open source.
 
 ```
-Cliente → QR → Menu → Ordine → Cameriere conferma → Cucina prepara → Servito
+Customer → QR → Menu → Order → Waiter confirms → Kitchen prepares → Served
 ```
 
-## Demo live
+## Live Demo
 
 **Menu:** https://scan2order-alpha.vercel.app
 **Staff:** https://scan2order-alpha.vercel.app/staff/login
 
-| Ruolo | Email | Password |
+| Role | Email | Password |
 |---|---|---|
 | Admin | `admin@demo.it` | `demo1234` |
-| Cameriere | `cameriere@demo.it` | `demo1234` |
-| Cucina | `cucina@demo.it` | `demo1234` |
+| Waiter | `cameriere@demo.it` | `demo1234` |
+| Kitchen | `cucina@demo.it` | `demo1234` |
 
-## Setup in 2 minuti
+---
+
+## Features
+
+### Customer
+
+- **Digital Menu** — Categories, photos, descriptions, prices, calories, allergens
+- **Extras & Notes** — Customize every dish with modifiers (+price) and text notes
+- **Cart** — Summary before sending, adjust quantities, remove items
+- **Opening Hours** — Blocks ordering when restaurant is closed
+- **Order History** — View recent orders (toggle in admin)
+- **PWA** — Menu works offline, installable on home screen
+- **Offline Queue** — Orders queued locally, sent automatically when back online
+- **i18n** — Interface available in Italian and English (auto-detected)
+
+### Staff (waiter, kitchen, admin)
+
+- **Order for Tables** — Staff can open the menu and order on behalf of customers
+- **All Details** — Every order card shows items with quantities, extras, and notes
+- **Smart Notifications** — Sound + vibration + floating red badge + document title
+- **Realtime** — Dashboards update instantly via Supabase Realtime
+
+### Waiter Dashboard
+
+- **Confirm Orders** — See who ordered what, confirm or mark as served
+- **Columns** — To confirm / To serve
+
+### Kitchen Dashboard
+
+- **Cook & Ready** — Manage the flow: confirmed → cooking → ready
+- **Print Orders** — Opens a browser-optimized print window (items, extras, notes)
+  - *⚠️ Does not support ESC/POS thermal printers. For that, you need an additional layer (e.g. a local server with `node-escpos` or a cloud print service).*
+
+### Admin Dashboard
+
+- **Restaurant** — Name, URL slug, opening hours (visual day-by-day editor)
+- **Categories & Items** — Full CRUD, dish photo upload (Supabase Storage), kcal, allergens, availability
+- **Modifiers** — Extras with surcharge per item
+- **Tables** — Add, edit, **download QR code as PNG**, copy QR link
+- **Staff** — Invite members (admin, waiter, kitchen), change roles, delete
+- **Statistics** — Orders today, pending, revenue (realtime)
+- **Export / Import Menu** — Download menu as JSON or upload to replace it
+- **Waiter Confirmation** — Toggle on/off
+- **Order History** — Show/hide to customers
+
+### Self-Serve Onboarding
+
+- **Create your restaurant** — Visit `/staff/register`, fill in restaurant name, slug, and admin account. No SQL editor needed.
+- Automatic setup: creates tenant, menu categories (Antipasti, Primi, Secondi, Dolci) and 4 sample tables.
+
+---
+
+## Stack
+
+| What | Why |
+|---|---|
+| **Astro 4** | Fast web framework, SSR, multi-framework support |
+| **Svelte 5** | Interactive client components, native reactivity ($state, $derived), tiny bundles |
+| **Tailwind CSS 3** | Utility-first CSS, responsive design without custom CSS |
+| **Supabase** | Full backend: PostgreSQL, Auth, RLS, Realtime, Storage, REST API |
+| **Vercel** | Serverless hosting, auto-deploy from GitHub, global CDN, free tier |
+| **pnpm** | Fast, disk-efficient package manager |
+| **Vitest** | Fast unit tests, Vite-compatible |
+| **Playwright** | E2E tests for real user simulation |
+
+### Why Supabase?
+
+- Zero server management — database, auth, storage and API in one shot
+- RLS (Row Level Security) — every row has a policy defining access
+- Realtime — orders stream to kitchen/waiter without custom WebSockets
+- Storage — dish images uploaded directly to Supabase Storage
+
+### Why Svelte 5?
+
+- Much smaller bundles (AdminDashboard ~25KB, Supabase SDK ~213KB)
+- Less boilerplate — reactivity is native, no hooks or deps
+- Better first-load and update performance
+
+---
+
+## Architecture
+
+```
+qr-menu/
+├── src/
+│   ├── components/
+│   │   ├── astro/                   # Server-rendered components
+│   │   │   └── Layout.astro          # HTML base, head, header
+│   │   └── svelte/                  # Interactive client components
+│   │       ├── Cart.svelte               # Customer menu + cart + order
+│   │       ├── Clock.svelte              # Realtime clock
+│   │       ├── WaiterDashboard.svelte     # Waiter confirm/serve
+│   │       ├── KitchenDashboard.svelte    # Kitchen cook/ready/print
+│   │       ├── AdminDashboard.svelte      # Full CRUD + upload + QR
+│   │       ├── StaffManager.svelte        # Staff invite/roles/delete
+│   │       ├── StatsBar.svelte            # Realtime stats
+│   │       ├── StaffLogin.svelte          # Staff login page
+│   │       ├── StaffOrder.svelte          # Staff order-for-table
+│   │       ├── RegisterWizard.svelte      # Self-serve restaurant creation
+│   │       ├── LangToggle.svelte          # Language switcher (IT/EN)
+│   │       ├── OrderCard.svelte           # Reusable order card
+│   │       └── LogoutButton.svelte        # Logout button
+│   ├── lib/
+│   │   ├── i18n/                    # Translation files (it.json, en.json)
+│   │   │   └── index.svelte.ts      # Locale store + t() function
+│   │   ├── supabase.ts              # Supabase client (anon key)
+│   │   ├── admin.server.ts          # Supabase client (service_role, server)
+│   │   ├── orders.ts                # createOrder, transitionOrderStatus, etc.
+│   │   ├── cache.ts                 # Client-side menu cache
+│   │   └── types.ts                 # TypeScript type definitions
+│   ├── pages/
+│   │   ├── index.astro              # Root — auto-redirect to first restaurant
+│   │   ├── [tenant]/index.astro     # Customer menu page (dynamic slug)
+│   │   ├── [tenant]/carrello.astro  # Legacy cart page
+│   │   ├── staff/
+│   │   │   ├── login.astro          # Staff login
+│   │   │   ├── register.astro       # Self-serve restaurant registration
+│   │   │   ├── admin.astro          # Admin dashboard
+│   │   │   ├── cameriere.astro      # Waiter dashboard
+│   │   │   ├── cucina.astro         # Kitchen dashboard
+│   │   │   └── ordina.astro         # Staff order page
+│   │   └── api/
+│   │       ├── staff.ts             # Staff management API (server-only)
+│   │       └── qr/[tableId].png.ts  # QR code PNG generator
+│   └── styles/
+│       └── global.css               # Tailwind base + font
+├── supabase/
+│   ├── setup.sql                    # FULL SCHEMA: tables, RLS, functions, seed, storage
+│   └── migrations/
+│       └── 00001_schema.sql         # Migration copy
+├── scripts/
+│   ├── setup.mjs                    # Cross-platform setup script
+│   └── fix-node-version.mjs         # Post-build Node.js version fix
+├── tests/
+│   ├── unit/
+│   │   └── order-state.test.ts      # 12 state machine tests
+│   └── e2e/
+│       └── full-flow.spec.ts        # E2E test scaffold
+└── public/
+    ├── sw.js                        # Service worker for PWA
+    └── favicon/                     # Icons and manifest
+```
+
+### Order Flow
+
+```
+Customer                     Waiter                      Kitchen
+   │                            │                          │
+   ├─ Adds items ──────────────┤                          │
+   ├─ Selects extras ──────────┤                          │
+   ├─ Writes notes ────────────┤                          │
+   ├─ SENDS ORDER ─────────────┤                          │
+   │                            │                          │
+   ▼                      ┌─────┴──────┐                   │
+   "Submitted"            │  submitted  │                   │
+                          └─────┬──────┘                   │
+                                │                          │
+                    ┌───────────┴───────────┐              │
+                    │ (if waiter           │              │
+                    │  confirmation on)    │              │
+                    ▼                       ▼              │
+           "Pending Review"         "Confirmed"            │
+           pending_waiter_review      confirmed            │
+                    │                       │              │
+                    └───────┬───────────────┘              │
+                            │                              │
+                            └──────────┬───────────────────┘
+                                       │
+                                       ▼
+                                "In Kitchen"
+                                  in_kitchen
+                                       │
+                                       ▼
+                                     "Ready"
+                                      ready
+                                       │
+                                       ▼
+                                    "Served"
+                                     served
+```
+
+---
+
+## Database
+
+### Tables
+
+| Table | Description |
+|---|---|
+| `tenants` | Restaurants (name, slug, hours, waiter confirm, show history) |
+| `tables` | Tables (label, unique qr_token) |
+| `staff` | Staff members (auth_user_id, role) with unique (tenant, user) constraint |
+| `menu_categories` | Menu categories (name, sort order) |
+| `menu_items` | Menu items (name, description, price, photo, kcal, allergens, available) |
+| `item_modifiers` | Extras per item (name, surcharge) |
+| `orders` | Orders (status, total, timestamps) |
+| `order_items` | Order lines (item, quantity, notes, unit price) |
+| `order_item_modifiers` | Selected extras per order line |
+
+### Order States
+
+```
+submitted → pending_waiter_review → confirmed → in_kitchen → ready → served
+```
+
+Every transition is validated by a PostgreSQL function (`transition_order_status`) that checks:
+- The role of the requester (waiter, kitchen, admin)
+- The current order state
+- Whether the restaurant requires waiter confirmation
+
+### RLS (Row Level Security)
+
+All tables have RLS policies:
+- **tenants, tables, menu**: public read (anyone can see the menu)
+- **staff**: each user sees only their own record
+- **orders**: staff see only their restaurant's orders
+- **menu_items, menu_categories, tables**: only staff can modify
+- **orders insert**: allowed for all (anonymous customers can order)
+
+---
+
+## Quick Setup (2 minutes)
+
+### 1. Prerequisites
+
+- Node.js 18+
+- pnpm (`npm install -g pnpm`)
+- A Supabase project (free at [supabase.com](https://supabase.com))
+
+### 2. Automatic Setup
+
+```bash
+git clone https://github.com/Gabriele06-local/scan2order.git
+cd qr-menu
+node scripts/setup.mjs
+```
+
+The script will prompt for your Supabase keys and do everything automatically:
+1. Create `.env` with your keys
+2. Install dependencies (`pnpm install`)
+3. Run `setup.sql` on the database
+4. Create 3 demo staff accounts with password `demo1234`
+
+### 3. Start
+
+```bash
+pnpm run dev
+```
+
+Open `http://localhost:4321` — you'll see the menu for Table 1.
+Go to `http://localhost:4321/staff/login` to access dashboards.
+
+### 4. Demo Staff
+
+| Role | Email | Password |
+|---|---|---|
+| Administration | `admin@demo.it` | `demo1234` |
+| Waiter | `cameriere@demo.it` | `demo1234` |
+| Kitchen | `cucina@demo.it` | `demo1234` |
+
+### Manual Setup
+
+1. Create a project on [supabase.com](https://supabase.com)
+2. Copy `Project URL`, `anon key`, and `service_role key` from **Project Settings → API**
+3. Create `.env`:
+```env
+PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+PUBLIC_SUPABASE_KEY=eyJ...    # anon key
+PRIVATE_SUPABASE_SERVICE_KEY=eyJ...   # service_role key
+```
+4. Run `supabase/setup.sql` in Supabase **SQL Editor**
+5. `pnpm install && pnpm run dev`
+
+### Deploy to Vercel
+
+1. Push code to GitHub
+2. Go to [vercel.com](https://vercel.com) → **Add New Project**
+3. Import the repository
+4. Set **Node.js Version → 22.x** in project settings
+5. Add 3 **Environment Variables** (PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY, PRIVATE_SUPABASE_SERVICE_KEY)
+6. Deploy!
+
+---
+
+## Routes
+
+| Route | Description | Access |
+|---|---|---|
+| `/` | Auto-redirect to first restaurant+table | Public |
+| `/[slug]?table=[token]` | Customer menu (e.g. `/my-restaurant?table=table-1`) | Public |
+| `/staff/login` | Staff login | Public |
+| `/staff/register` | Self-serve restaurant creation | Public |
+| `/staff/admin` | Administration dashboard | Staff admin |
+| `/staff/cameriere` | Waiter dashboard (confirm/serve) | Staff waiter |
+| `/staff/cucina` | Kitchen dashboard (cook/ready/print) | Staff kitchen |
+| `/staff/ordina` | Order for a table | Staff any |
+| `/api/qr/[tableId].png` | Download QR code PNG | Any (linked from admin) |
+
+---
+
+## Security
+
+This project was designed with security as a priority.
+
+### Keys & Secrets
+
+- **anon key** — Public, used in frontend, safe to expose. RLS protects data at the database level.
+- **service_role key** — Never exposed to the client. Used only in server-side API routes and admin scripts.
+- **Passwords** — Stored only in Supabase Auth (hashed), never in code.
+
+### RLS
+
+Every table has policies limiting access:
+- **Public read**: only menu, tables, and restaurant info
+- **Anonymous write**: only for creating orders (anyone at the table must be able to order)
+- **Staff**: each member sees/modifies only their restaurant's data
+- **Admin**: only admins can manage staff
+
+### Staff API
+
+The `/api/staff` endpoint is protected:
+- Requires valid JWT token
+- Verifies the user has "admin" role in the database
+- Uses service_role key server-side only for sensitive operations
+- Unauthorized requests receive 403
+
+---
+
+## Development
+
+### Commands
+
+```bash
+pnpm run dev          # Start dev server
+pnpm run build        # Production build
+pnpm run preview      # Preview local build
+pnpm run test         # Unit tests (Vitest)
+pnpm run lint         # Lint (ESLint)
+pnpm run test:e2e     # E2E tests (Playwright)
+node scripts/setup.mjs # Automatic Supabase + demo setup
+```
+
+### Tests
+
+```bash
+pnpm run test
+```
+
+12 unit tests verifying the order state machine:
+- Valid and invalid transitions for each role
+- Waiter confirmation enabled/disabled
+- Unauthorized access attempts
+
+E2E tests (Playwright) available in `tests/e2e/`.
+
+### Code Conventions
+
+- Svelte 5 components use `$state`, `$derived`, `$props()` (runes)
+- Components are PascalCase (`Cart.svelte`)
+- API routes are kebab-case (`staff.ts`)
+- Public env vars start with `PUBLIC_`
+- Private (server-only) env vars start with `PRIVATE_`
+
+---
+
+## Known Issues
+
+- **Local Windows build**: The Vercel adapter can fail due to symlink restrictions. This is not a code issue — deploy directly from Vercel or use WSL.
+- **Node.js 24**: `@astrojs/vercel@7` doesn't recognize Node 24 and defaults to Node 18. The post-build script `scripts/fix-node-version.mjs` fixes the generated runtime.
+- **Thermal printers**: The kitchen print feature opens a browser print dialog. It does NOT support ESC/POS thermal printers directly. For real thermal printing, you need an additional layer (local server with `node-escpos`, or a cloud print service like PrintNode).
+
+---
+
+## License
+
+Open source (MIT). You can freely use, modify, and distribute it for personal or commercial use.
+
+---
+
+## Contributing
+
+Found a bug? Have an idea? Open an issue on GitHub or submit a pull request.
+
+---
+
+## 🇮🇹 Versione Italiana
+
+# scan2order — QR Menu per Ristoranti
+
+**I clienti inquadrano il QR sul tavolo e ordinano dal telefono. Zero carta, zero app.**
+
+Piatti con foto, calorie e allergeni. Extra e note per ogni ordine. Le comande arrivano in tempo reale in cucina e al cameriere. Interfaccia in italiano e inglese. Gratuito, open source.
+
+### Demo
+
+**Menu:** https://scan2order-alpha.vercel.app
+**Staff:** https://scan2order-alpha.vercel.app/staff/login
+
+### Nuove funzionalità (v0.1.0)
+
+- **QR scaricabile** — Nell'admin, ogni tavolo ha un pulsante "Scarica QR" che genera un PNG pronto per la stampa
+- **Carica foto** — I ristoratori possono caricare foto dei piatti direttamente dal telefono (Supabase Storage), non serve un URL
+- **Registrazione self-serve** — Vai su `/staff/register` e crea il tuo ristorante in 2 passi, senza toccare SQL
+- **i18n italiano/inglese** — L'interfaccia rileva automaticamente la lingua del browser e si adatta. Pulsante per cambiare manualmente
+- **Stampa cucina** — La stampa funziona via browser. *Nota: non supporta stampanti termiche ESC/POS* (serve un layer aggiuntivo)
+
+### Setup rapido
 
 ```bash
 git clone https://github.com/Gabriele06-local/scan2order.git
@@ -31,388 +438,8 @@ node scripts/setup.mjs   # ← ti guida passo passo
 pnpm run dev
 ```
 
-> Serve solo un progetto Supabase gratuito (lo crei in 1 minuto su supabase.com).
-
-## Perché esiste
-
-I menu cartacei costano, si sporcano, e vanno ristampati ogni volta che cambi un prezzo. Scan2order è gratuito, si aggiorna in tempo reale dall'admin (prezzi, foto, extra, orari), e funziona su qualsiasi telefono senza installare nulla.
-
-## Per chi è
-
-- **Ristoratori, pizzaioli, bar** — nessun canone mensile, niente abbonamento
-- **Sviluppatori** — stack moderno (Astro + Svelte + Supabase), pronto per self-hosting o deploy su Vercel
+Serve solo un progetto Supabase gratuito (supabase.com).
 
 ---
 
-## Funzionalità
-
-### Cliente
-
-- **Menu digitale** — Categorie, foto, descrizioni, prezzi, calorie, allergeni
-- **Extra e note** — Personalizza ogni piatto con modifiche e note
-- **Carrello** — Riepilogo prima dell'invio, modifica quantità, rimuovi
-- **Orari apertura** — Se il ristorante è chiuso, blocca l'ordine
-- **PWA** — Il menu funziona anche con rete lenta o assente
-- **Coda offline** — Se non c'è connessione, l'ordine viene accodato e inviato quando si torna online
-
-### Staff (cameriere, cucina, admin)
-
-- **Ordina per i tavoli** — Lo staff può aprire il menu e ordinare per conto dei clienti
-- **Tutti i dettagli** — Ogni card ordine mostra i piatti con quantità, extra e note
-- **Notifiche smart** — Suono + vibrazione + badge rosso + titolo scheda quando arriva un ordine
-- **Realtime** — Le dashboard si aggiornano in tempo reale senza refresh
-
-### Cameriere
-
-- **Conferma ordini** — Vedi chi ha ordinato cosa, conferma o segna come servito
-- **Colonne** — Da confermare / Da servire
-
-### Cucina
-
-- **Prepara e pronto** — Gestisci il flusso: confermato → in preparazione → pronto
-- **Stampa ordini** — Apre finestra di stampa browser ottimizzata per cucina (piatti, extra, note). *Nota: non supporta stampanti termiche ESC/POS. Per integrazione serve un layer aggiuntivo (es. server locale con node-escpos).*
-
-### Admin
-
-- **Ristorante** — Nome, slug URL, orari apertura (editor visuale giorno per giorno)
-- **Categorie e Piatti** — CRUD completo, foto, kcal, allergeni, disponibilità
-- **Personalizzazioni** — Extra con sovrapprezzo per ogni piatto
-- **Tavoli** — Aggiungi, modifica, copia link QR
-- **Personale** — Aggiungi membri (admin, cameriere, cucina), cambia ruolo, elimina
-- **Statistiche** — Ordini oggi, in attesa, incasso (in tempo reale)
-- **Esporta / Importa Menu** — Scarica il menu come JSON o caricalo per sostituirlo
-- **Conferma cameriere** — Attiva/disattiva
-- **Storico ordini** — Mostra/nascondi ai clienti
-
----
-
-## Stack
-
-| Cosa | Perché |
-|---|---|
-| **Astro 4** | Framework web veloce, render lato server (SSR/SSG), supporto multi-framework |
-| **Svelte 5** | Componenti interattivi lato client, reattività nativa ($state, $derived), bundle piccoli |
-| **Tailwind CSS 3** | Utility-first CSS, design responsive senza scrivere CSS custom |
-| **Supabase** | Backend completo: database PostgreSQL, autenticazione, RLS, Realtime, API REST |
-| **Vercel** | Hosting serverless, deploy automatico da GitHub, CDN globale, gratis |
-| **pnpm** | Package manager veloce e a prova di errore |
-| **Vitest** | Test unitari veloci, compatibile con Vite |
-| **Playwright** | Test E2E (end-to-end) per simulare l'utente reale |
-
-### Perché Supabase e non un backend custom?
-
-- Zero gestione server — database, auth e API in un colpo solo
-- RLS (Row Level Security) — ogni riga del database ha una policy che dice chi può leggerla/modificarla
-- Realtime — gli ordini arrivano in cucina e al cameriere in tempo reale senza WebSocket custom
-- Servizio cloud hosted, backup automatici, scalabilità orizzontale
-
-### Perché Svelte 5 e non React?
-
-- Bundle molto più piccoli (l'admin dashboard pesa ~19KB, Supabase SDK ~213KB)
-- Meno boilerplate — la reattività è nativa, non servono hook o dipendenze
-- Performance migliori al primo caricamento e negli aggiornamenti
-
----
-
-## Architettura
-
-```
-qr-menu/
-├── src/
-│   ├── components/
-│   │   ├── astro/              # Componenti renderizzati lato server
-│   │   │   └── Layout.astro     # HTML base, head, header, favicon
-│   │   └── svelte/             # Componenti interattivi (client JavaScript)
-│   │       ├── Cart.svelte          # Menu cliente + carrello + invio ordine
-│   │       ├── Clock.svelte         # Orologio in tempo reale nelle dashboard
-│   │       ├── WaiterDashboard.svelte # Dashboard cameriere (conferma/servi)
-│   │       ├── KitchenDashboard.svelte # Dashboard cucina (prepara/pronto/stampa)
-│   │       ├── AdminDashboard.svelte   # CRUD ristorante, piatti, tavoli, extra
-│   │       ├── StaffManager.svelte    # Gestione staff (invita, ruoli, elimina)
-│   │       ├── StatsBar.svelte        # Statistiche realtime (oggi, in attesa, incasso)
-│   │       ├── StaffLogin.svelte      # Pagina di login staff
-│   │       ├── OrderCard.svelte       # Card ordine riutilizzabile
-│   │       └── LogoutButton.svelte    # Pulsante logout
-│   ├── lib/
-│   │   ├── supabase.ts          # Client Supabase (anon key)
-│   │   ├── admin.server.ts      # Client Supabase admin (service_role key, solo server)
-│   │   ├── orders.ts            # Funzioni createOrder, transitionOrderStatus, etc.
-│   │   ├── cache.ts             # Cache lato client per il menu
-│   │   └── types.ts             # TypeScript types
-│   ├── pages/
-│   │   ├── index.astro          # Root — redirect automatico al primo ristorante
-│   │   ├── [tenant]/index.astro # Pagina menu cliente (dinamica per slug)
-│   │   ├── staff/
-│   │   │   ├── login.astro      # Login staff
-│   │   │   ├── admin.astro      # Dashboard admin
-│   │   │   ├── cameriere.astro  # Dashboard cameriere
-│   │   │   └── cucina.astro     # Dashboard cucina
-│   │   └── api/
-│   │       └── staff.ts         # API per gestione staff (server-only)
-│   └── styles/
-│       └── global.css           # Tailwind base + font
-├── supabase/
-│   ├── setup.sql                # SCHEMA COMPLETO: tabelle, RLS, funzioni, seed
-│   ├── migrations/
-│   │   └── 00001_schema.sql     # Migration file (stessa roba, formato migration)
-│   └── seed.sql                 # Seed dati di esempio (ridondante, usare setup.sql)
-├── scripts/
-│   └── fix-node-version.mjs     # Post-build script per runtime Node 22 su Vercel
-├── tests/
-│   ├── unit/
-│   │   └── order-state.test.ts  # 12 test sulla macchina a stati degli ordini
-│   └── e2e/
-│       └── full-flow.spec.ts    # Test E2E con Playwright (scaffold)
-└── public/
-    └── favicon/                 # Favicon e icone (logo QR)
-```
-
-### Flusso di un ordine
-
-```
-Cliente                      Cameriere                   Cucina
-   │                            │                          │
-   ├─ Aggiunge piatti ──────────┤                          │
-   ├─ Seleziona extra ──────────┤                          │
-   ├─ Scrive note ──────────────┤                          │
-   ├─ INVIA ORDINE ─────────────┤                          │
-   │                            │                          │
-   ▼                      ┌─────┴──────┐                   │
-   "Inviato"              │  submitted  │                   │
-                          └─────┬──────┘                   │
-                                │                          │
-                    ┌───────────┴───────────┐              │
-                    │ (se conferma          │              │
-                    │  cameriere attiva)    │              │
-                    ▼                       ▼              │
-           "Da confermare"          "Confermato"           │
-           pending_waiter_review      confirmed            │
-                    │                       │              │
-                    └───────┬───────────────┘              │
-                            │                              │
-                            └──────────┬───────────────────┘
-                                       │
-                                       ▼
-                                "In preparazione"
-                                  in_kitchen
-                                       │
-                                       ▼
-                                     "Pronto"
-                                      ready
-                                       │
-                                       ▼
-                                    "Servito"
-                                     served
-```
-
----
-
-## Database
-
-### Tabelle principali
-
-| Tabella | Descrizione |
-|---|---|
-| `tenants` | Ristoranti (nome, slug, orari, conferma cameriere, mostra storico) |
-| `tables` | Tavoli (label, qr_token univoco) |
-| `staff` | Membri dello staff (auth_user_id, ruolo) con vincolo unico (tenant, user) |
-| `menu_categories` | Categorie menu (nome, ordine) |
-| `menu_items` | Piatti (nome, descrizione, prezzo, foto, kcal, allergeni, disponibile) |
-| `item_modifiers` | Extra/modifiche per piatto (nome, sovrapprezzo) |
-| `orders` | Ordini (stato, totale, timestamp) |
-| `order_items` | Righe ordine (piatto, quantità, note, prezzo unitario) |
-| `order_item_modifiers` | Extra selezionati per ogni riga ordine |
-
-### Stati ordine
-
-```
-submitted → pending_waiter_review → confirmed → in_kitchen → ready → served
-```
-
-Ogni transizione è validata da una funzione PostgreSQL (`transition_order_status`) che controlla:
-- Il ruolo di chi richiede la transizione (cameriere, cucina, admin)
-- Lo stato attuale dell'ordine
-- Se il ristorante richiede la conferma del cameriere
-
-### RLS (Row Level Security)
-
-Tutte le tabelle hanno policy RLS. Esempi:
-
-- **tenants, tables, menu**: lettura pubblica (chiunque può vedere il menu)
-- **staff**: ogni utente vede solo il proprio record
-- **orders**: il personale vede solo gli ordini del proprio ristorante
-- **menu_items, menu_categories, tables**: solo lo staff del ristorante può modificare
-- **orders insert**: permesso a tutti (i clienti anonimi possono ordinare)
-
----
-
-## Setup rapido (2 minuti)
-
-### 1. Prerequisiti
-
-- Node.js 18+
-- pnpm (`npm install -g pnpm`)
-- Un progetto Supabase (gratuito su [supabase.com](https://supabase.com))
-
-### 2. Setup automatico
-
-```bash
-git clone https://github.com/Gabriele06-local/scan2order.git
-cd qr-menu
-node scripts/setup.mjs
-```
-
-Lo script ti chiederà le chiavi del tuo progetto Supabase e farà tutto automaticamente:
-
-1. Crea il file `.env` con le tue chiavi
-2. Installa le dipendenze (`pnpm install`)
-3. Esegue `setup.sql` sul database
-4. Crea 3 account staff demo con password `demo1234`
-
-### 3. Avvia
-
-```bash
-pnpm run dev
-```
-
-Apri `http://localhost:4321` — vedrai il menu del tuo ristorante dal Tavolo 1.
-Vai su `http://localhost:4321/staff/login` per accedere alle dashboard.
-
-### 4. Staff demo
-
-| Ruolo | Email | Password |
-|---|---|---|
-| Amministrazione | `admin@demo.it` | `demo1234` |
-| Cameriere | `cameriere@demo.it` | `demo1234` |
-| Cucina | `cucina@demo.it` | `demo1234` |
-
-### Manuale (se preferisci)
-
-1. Crea un progetto su [supabase.com](https://supabase.com)
-2. Copia `Project URL`, `anon key` e `service_role key` da **Project Settings → API**
-3. Crea il file `.env`:
-
-```env
-PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-PUBLIC_SUPABASE_KEY=eyJ...    # anon key
-PRIVATE_SUPABASE_SERVICE_KEY=eyJ...   # service_role key
-```
-
-4. Esegui `supabase/setup.sql` nel **SQL Editor** di Supabase
-5. `pnpm install && pnpm run dev`
-
-### 7. Deploy su Vercel
-
-1. Fai il push del codice su GitHub
-2. Vai su [vercel.com](https://vercel.com) → **Add New Project**
-3. Importa il repository
-4. Nelle impostazioni progetto, setta **Node.js Version → 22.x**
-5. Aggiungi le 3 **Environment Variables** (PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY, PRIVATE_SUPABASE_SERVICE_KEY)
-6. Deploy!
-
----
-
-## Rotte
-
-| Route | Descrizione | Accesso |
-|---|---|---|
-| `/` | Redirect automatico al primo ristorante+tavolo | Pubblico |
-| `/[slug]?table=[token]` | Menu cliente (es. `/mio-ristorante?table=tavolo-1`) | Pubblico |
-| `/staff/login` | Login per personale | Pubblico |
-| `/staff/admin` | Dashboard amministrazione | Staff admin |
-| `/staff/cameriere` | Dashboard cameriere (conferma/servi) | Staff cameriere |
-| `/staff/admin` | Dashboard cucina (prepara/pronto/stampa) | Staff cucina |
-
----
-
-## Sicurezza
-
-Questo progetto è stato progettato con la sicurezza come priorità.
-
-### Chiavi e segreti
-
-- **anon key** — Pubblica, va nel frontend, può essere esposta. RLS protegge i dati a livello database.
-- **service_role key** — Mai esposta al client. Usata solo nelle API route server-side (Astro) e in script di amministrazione.
-- **Password** — Memorizzate solo in Supabase Auth (hashate), mai nel codice.
-
-### RLS (Row Level Security)
-
-Ogni tabella ha policy che limitano l'accesso:
-
-- **Lettura pubblica**: solo per menu, tavoli e ristoranti (serve per visualizzare il menu)
-- **Scrittura anonima**: solo per creare ordini (chiunque al tavolo deve poter ordinare)
-- **Staff**: ogni membro vede/modifica solo i dati del proprio ristorante
-- **Admin**: solo gli admin possono gestire lo staff
-
-### API staff
-
-L'endpoint `/api/staff` è protetto:
-- Richiede token JWT valido (estratto dall'header Authorization)
-- Verifica che l'utente abbia ruolo "admin" nel database
-- Usa la service_role key solo lato server per operazioni sensibili (creazione/eliminazione utenti auth)
-- Le richieste non autorizzate ricevono 403
-
-### Best practice
-
-- `.env` è in `.gitignore` e non viene mai committato
-- Le chiavi su Vercel vanno inserite manualmente nelle Environment Variables
-- Rigenera periodicamente le chiavi Supabase se il progetto è pubblico
-- Il vincolo `UNIQUE (tenant_id, auth_user_id)` sulla tabella staff previene duplicati
-
----
-
-## Sviluppo
-
-### Comandi
-
-```bash
-pnpm run dev          # Avvia server di sviluppo
-pnpm run build        # Build di produzione
-pnpm run preview      # Anteprima build locale
-pnpm run test         # Test unitari (Vitest)
-pnpm run lint         # Lint (ESLint)
-pnpm run test:e2e     # Test E2E (Playwright)
-node scripts/setup.mjs # Setup automatico Supabase + account demo
-```
-
-### Test
-
-```bash
-pnpm run test
-```
-
-12 test unitari che verificano la macchina a stati degli ordini:
-- Transizioni valide e non valide per ogni ruolo
-- Conferma cameriere obbligatoria/disabilitata
-- Tentativi di accesso non autorizzati
-
-Test E2E (Playwright) disponibili in `tests/e2e/` per testare il flusso completo
-(cliente → ordine → cameriere conferma → cucina prepara → cameriere serve).
-
-### Convenzioni di codice
-
-- I componenti Svelte 5 usano `$state`, `$derived`, `$props()` (runes)
-- I componenti sono in PascalCase (`Cart.svelte`, `WaiterDashboard.svelte`)
-- Le API route sono in kebab-case (`staff.ts`)
-- Le variabili di ambiente pubbliche iniziano con `PUBLIC_`
-- Le variabili private (server-only) iniziano con `PRIVATE_`
-
----
-
-## Problemi noti
-
-- **Build locale su Windows**: l'adapter Vercel può fallire per symlink. Non è un problema di codice — fai il deploy direttamente da Vercel o usa WSL.
-- **Node.js 24**: l'adapter `@astrojs/vercel@7` non riconosce Node 24 e forza Node 18. Il post-build script `scripts/fix-node-version.mjs` corregge il runtime generato.
-- **WebSocket**: Node.js 20+ ha WebSocket nativo. Con Node 18 serve un polyfill (`ws`).
-
----
-
-## Licenza
-
-Progetto open source. Puoi usarlo, modificarlo e distribuirlo liberamente per uso personale o commerciale.
-
----
-
-## Contribuire
-
-Trovato un bug? Hai un'idea? Apri una issue su GitHub o fai una pull request.
+*Built with ❤️ for restaurants that want to go digital without breaking the bank.*
