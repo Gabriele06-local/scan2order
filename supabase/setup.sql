@@ -610,7 +610,7 @@ declare
   v_order_id uuid;
   v_tenant_id uuid;
   v_waiter_confirmed boolean;
-  v_order_status text;
+  v_order_status public.order_status;
   item jsonb;
   v_order_item_id uuid;
   mod jsonb;
@@ -618,14 +618,13 @@ begin
   select * into v_reservation from reservations where id = p_reservation_id;
   if not found then raise exception 'Reservation not found'; end if;
 
-  -- Use provided table_id or reservation's table_id
   v_tenant_id := v_reservation.tenant_id;
   if p_table_id is null and v_reservation.table_id is not null then
     p_table_id := v_reservation.table_id;
   end if;
 
   select waiter_confirmation_enabled into v_waiter_confirmed from tenants where id = v_tenant_id;
-  v_order_status := case when v_waiter_confirmed then 'submitted' else 'confirmed' end;
+  v_order_status := case when v_waiter_confirmed then 'submitted'::public.order_status else 'confirmed'::public.order_status end;
 
   -- Create the order
   insert into orders (tenant_id, table_id, status, total_cents)

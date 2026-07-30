@@ -392,7 +392,7 @@ create or replace function convert_reservation_to_order(
 as $$
 declare
   v reservations%rowtype;
-  v_oid uuid; v_tid uuid; v_wc boolean; v_os text;
+  v_oid uuid; v_tid uuid; v_wc boolean; v_os public.order_status;
   item jsonb; v_oiid uuid; mod jsonb;
 begin
   select * into v from reservations where id = p_reservation_id;
@@ -400,7 +400,7 @@ begin
   v_tid := v.tenant_id;
   if p_table_id is null and v.table_id is not null then p_table_id := v.table_id; end if;
   select waiter_confirmation_enabled into v_wc from tenants where id = v_tid;
-  v_os := case when v_wc then 'submitted' else 'confirmed' end;
+  v_os := case when v_wc then 'submitted'::public.order_status else 'confirmed'::public.order_status end;
   insert into orders (tenant_id, table_id, status, total_cents) values (v_tid, p_table_id, v_os, 0) returning id into v_oid;
   for item in select * from jsonb_array_elements(v.pre_order) loop
     insert into order_items (order_id, menu_item_id, quantity, notes, unit_price_cents)
