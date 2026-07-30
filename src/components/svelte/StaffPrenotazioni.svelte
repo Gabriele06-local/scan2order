@@ -3,10 +3,13 @@
   import { supabase } from '../../lib/supabase';
 
   let reservations = $state<any[]>([]);
+  let tables = $state<any[]>([]);
   let loading = $state(true);
   let selectedDate = $state(new Date().toISOString().slice(0, 10));
   let converting = $state<string | null>(null);
   let showAll = $state(false);
+  let tenantId = $state('');
+  let pickTable = $state<{ reservationId: string; tableId: string } | null>(null);
 
   async function load() {
     loading = true;
@@ -14,13 +17,15 @@
     if (!user) { loading = false; return; }
     const { data: staff } = await supabase.from('staff').select('tenant_id').eq('auth_user_id', user.id).single();
     if (!staff) { loading = false; return; }
-    const tenantId = (staff as any).tenant_id;
+    tenantId = (staff as any).tenant_id;
     const start = showAll ? new Date(0).toISOString() : new Date(selectedDate + 'T00:00:00').toISOString();
     const end = showAll ? new Date('2099-12-31').toISOString() : new Date(selectedDate + 'T23:59:59').toISOString();
-    const { data } = await supabase.from('reservations').select('*')
+    const { data: reservationsData } = await supabase.from('reservations').select('*')
       .eq('tenant_id', tenantId).gte('reservation_time', start).lte('reservation_time', end)
       .order('reservation_time', { ascending: true });
-    reservations = data ?? [];
+    reservations = reservationsData ?? [];
+    const { data: tablesData } = await supabase.from('tables').select('id, label').eq('tenant_id', tenantId);
+    tables = tablesData ?? [];
     loading = false;
   }
 
@@ -29,10 +34,19 @@
     await load();
   }
 
-  async function convertToOrder(id: string) {
-    converting = id;
-    const { error } = await supabase.rpc('convert_reservation_to_order', { p_reservation_id: id });
+  function askTable(id: string) {
+    pickTable = { reservationId: id, tableId: tables[0]?.id || '' };
+  }
+
+  async function doConvert() {
+    if (!pickTable) return;
+    converting = pickTable.reservationId;
+    const { error } = await supabase.rpc('convert_reservation_to_order', {
+      p_reservation_id: pickTable.reservationId,
+      p_table_id: pickTable.tableId,
+    });
     converting = null;
+    pickTable = null;
     if (!error) await load();
   }
 
@@ -116,19 +130,37 @@
                   </div>
                 {/each}
               </div>
-              {#if r.status === 'pending' || r.status === 'confirmed'}
-                <button onclick={() => convertToOrder(r.id)} disabled={converting === r.id}
-                  class="mt-3 w-full text-sm bg-blue-600 text-white rounded-xl py-2 font-semibold hover:bg-blue-700 disabled:opacity-50 active:scale-[0.97] transition-all">
-                  {converting === r.id ? t('common.loading') : t('reservations.seat_guest')}
+            </div>
+          {/if}
+
+          {#if r.status === 'pending' || r.status === 'confirmed'}
+            <div class="mt-3">
+              {#if r.pre_order?.length > 0}
+                {#if pickTable?.reservationId === r.id}
+                  <div class="flex items-center gap-2">
+                    <select bind:value={pickTable.tableId} class="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none flex-1">
+                      {#each tables as t}
+                        <option value={t.id}>{t.label}</option>
+                      {/each}
+                    </select>
+                    <button onclick={doConvert} disabled={converting === r.id}
+                      class="text-sm bg-blue-600 text-white rounded-xl px-4 py-2 font-semibold hover:bg-blue-700 disabled:opacity-50 active:scale-[0.97] transition-all whitespace-nowrap">
+                      {converting === r.id ? t('common.loading') : t('reservations.seat_guest')}
+                    </button>
+                    <button onclick={() => pickTable = null} class="text-xs text-gray-400 hover:text-gray-600">✕</button>
+                  </div>
+                {:else}
+                  <button onclick={() => askTable(r.id)}
+                    class="w-full text-sm bg-blue-600 text-white rounded-xl py-2 font-semibold hover:bg-blue-700 active:scale-[0.97] transition-all">
+                    {t('reservations.seat_guest')}
+                  </button>
+                {/if}
+              {:else}
+                <button onclick={() => updateStatus(r.id, 'confirmed')}
+                  class="w-full text-sm bg-green-100 text-green-700 rounded-xl py-2 font-semibold hover:bg-green-200 active:scale-[0.97] transition-all">
+                  {t('reservations.seat_table')}
                 </button>
               {/if}
-            </div>
-          {:else if r.status === 'pending'}
-            <div class="mt-3">
-              <button onclick={() => convertToOrder(r.id)} disabled={converting === r.id}
-                class="w-full text-sm bg-blue-600 text-white rounded-xl py-2 font-semibold hover:bg-blue-700 disabled:opacity-50 active:scale-[0.97] transition-all">
-                {converting === r.id ? t('common.loading') : t('reservations.seat_table')}
-              </button>
             </div>
           {/if}
 
