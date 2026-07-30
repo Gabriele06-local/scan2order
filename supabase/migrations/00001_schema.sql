@@ -349,3 +349,74 @@ begin
   return v_order_id;
 end;
 $$;
+
+-- Reservations
+
+create table if not exists reservations (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references tenants(id) on delete cascade,
+  table_id uuid references tables(id) on delete set null,
+  guest_name text not null,
+  guest_email text,
+  guest_phone text,
+  guest_count int not null,
+  reservation_time timestamptz not null,
+  status text not null default 'pending' check (status in ('pending','confirmed','cancelled','no_show')),
+  notes text,
+  pre_order jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table reservations enable row level security;
+
+create index if not exists idx_reservations_tenant_time on reservations (tenant_id, reservation_time);
+
+do $$ begin alter publication supabase_realtime add table reservations; exception when unique_violation then null; end; $$;
+
+drop policy if exists "reservations public insert" on reservations;
+create policy "reservations public insert" on reservations for insert with check (true);
+
+drop policy if exists "reservations staff select" on reservations;
+create policy "reservations staff select" on reservations
+  for select using (exists (select 1 from staff where staff.tenant_id = reservations.tenant_id and staff.auth_user_id = (select auth.uid())));
+
+drop policy if exists "reservations staff update" on reservations;
+create policy "reservations staff update" on reservations
+  for update using (exists (select 1 from staff where staff.tenant_id = reservations.tenant_id and staff.auth_user_id = (select auth.uid())));
+
+create or replace function convert_reservation_to_order(
+  p_reservation_id uuid, p_table_id uuid default null
+) returns uuid
+  language plpgsql security invoker set search_path = 'public'
+as $$
+declare
+  v reservations%rowtype;
+  v_oid uuid; v_tid uuid; v_wc boolean; v_os text;
+  item jsonb; v_oiid uuid; mod jsonb;
+begin
+  select * into v from reservations where id = p_reservation_id;
+  if not found then raise exception 'Reservation not found'; end if;
+  v_tid := v.tenant_id;
+  if p_table_id is null and v.table_id is not null then p_table_id := v.table_id; end if;
+  select waiter_confirmation_enabled into v_wc from tenants where id = v_tid;
+  v_os := case when v_wc then 'submitted' else 'confirmed' end;
+  insert into orders (tenant_id, table_id, status, total_cents) values (v_tid, p_table_id, v_os, 0) returning id into v_oid;
+  for item in select * from jsonb_array_elements(v.pre_order) loop
+    insert into order_items (order_id, menu_item_id, quantity, notes, unit_price_cents)
+    values (v_oid, (item->>'menu_item_id')::uuid, (item->>'quantity')::int, item->>'notes', (item->>'unit_price_cents')::int)
+    returning id into v_oiid;
+    if item ? 'modifiers' then
+      for mod in select * from jsonb_array_elements(item->'modifiers') loop
+        insert into order_item_modifiers (order_item_id, modifier_id, name, price_cents)
+        values (v_oiid, (mod->>'id')::uuid, mod->>'name', (mod->>'price_cents')::int);
+      end loop;
+    end if;
+  end loop;
+  update reservations set status = 'confirmed', table_id = coalesce(p_table_id, table_id), updated_at = now() where id = p_reservation_id;
+  return v_oid;
+end;
+$$;
+
+revoke execute on function convert_reservation_to_order from public;
+grant execute on function convert_reservation_to_order to authenticated;
