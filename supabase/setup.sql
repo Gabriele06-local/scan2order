@@ -580,9 +580,15 @@ create index if not exists idx_reservations_tenant_time on reservations (tenant_
 do $$ begin alter publication supabase_realtime add table reservations; exception when unique_violation then null; end; $$;
 
 -- RLS: public insert (booking form), staff select/update
+-- Basic validation: valid tenant, non-empty name, reasonable guest count, future-ish time
 drop policy if exists "reservations public insert" on reservations;
 create policy "reservations public insert" on reservations
-  for insert with check (true);
+  for insert with check (
+    exists (select 1 from tenants where tenants.id = tenant_id)
+    and guest_name is not null and guest_name <> ''
+    and guest_count > 0 and guest_count <= 50
+    and reservation_time > now() - interval '1 hour'
+  );
 
 drop policy if exists "reservations staff select" on reservations;
 create policy "reservations staff select" on reservations
