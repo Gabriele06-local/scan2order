@@ -260,10 +260,78 @@ create policy "staff update orders" on orders
   );
 
 -- 4. Functions
--- Note: create_order remains SECURITY DEFINER intentionally — it needs to bypass
--- RLS for the rate limit check (SELECT from orders as anon). This is expected
--- and triggers Supabase advisor warnings #0028/#0029 which are false positives.
+-- Rate limit + total_cents are handled by SECURITY DEFINER trigger functions
+-- (not RPC-callable, EXECUTE revoked from PUBLIC) to avoid advisor warnings.
 
+create or replace function check_order_rate_limit() returns trigger
+  language plpgsql
+  security definer
+  set search_path = 'public'
+as $$
+declare
+  v_recent_count int;
+begin
+  if exists (select 1 from staff where staff.auth_user_id = (select auth.uid())) then
+    return new;
+  end if;
+  select count(*) into v_recent_count
+  from orders
+  where table_id = new.table_id
+    and created_at > now() - interval '10 minutes';
+  if v_recent_count >= 5 then
+    raise exception 'Troppi ordini da questo tavolo. Attendi qualche minuto.';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function update_order_total() returns trigger
+  language plpgsql
+  security definer
+  set search_path = 'public'
+as $$
+declare
+  v_order_id uuid;
+begin
+  if TG_TABLE_NAME = 'order_items' then
+    v_order_id := new.order_id;
+  elsif TG_TABLE_NAME = 'order_item_modifiers' then
+    select order_id into v_order_id from order_items where id = new.order_item_id;
+  end if;
+  update orders set total_cents = (
+    select coalesce(sum(item_total + mod_total), 0)
+    from (
+      select
+        oi.unit_price_cents * oi.quantity as item_total,
+        coalesce((select sum(oim.price_cents * oi.quantity) from order_item_modifiers oim where oim.order_item_id = oi.id), 0) as mod_total
+      from order_items oi
+      where oi.order_id = v_order_id
+    ) t
+  ) where id = v_order_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_check_order_rate_limit on orders;
+create trigger trg_check_order_rate_limit
+  before insert on orders
+  for each row
+  execute function check_order_rate_limit();
+
+drop trigger if exists trg_update_order_total_on_order_items on order_items;
+create trigger trg_update_order_total_on_order_items
+  after insert on order_items
+  for each row
+  execute function update_order_total();
+
+drop trigger if exists trg_update_order_total_on_modifiers on order_item_modifiers;
+create trigger trg_update_order_total_on_order_item_modifiers
+  after insert on order_item_modifiers
+  for each row
+  execute function update_order_total();
+
+-- Note: create_order uses SECURITY INVOKER — RLS policies handle auth;
+-- triggers (SECURITY DEFINER, not RPC-callable) handle rate limit + total.
 create or replace function transition_order_status(
   p_order_id uuid,
   p_new_status public.order_status,
@@ -327,26 +395,15 @@ create or replace function create_order(
   p_items jsonb
 ) returns uuid
   language plpgsql
-  security definer
+  security invoker
   set search_path = 'public'
 as $$
 declare
   v_order_id uuid;
-  v_total int := 0;
   item jsonb;
   v_order_item_id uuid;
   mod jsonb;
-  v_recent_count int;
 begin
-  -- Rate limit: max 5 orders per table per 10 minutes
-  select count(*) into v_recent_count
-  from orders
-  where table_id = p_table_id
-    and created_at > now() - interval '10 minutes';
-  if v_recent_count >= 5 then
-    raise exception 'Troppi ordini da questo tavolo. Attendi qualche minuto.';
-  end if;
-
   insert into orders (tenant_id, table_id, status, total_cents)
   values (p_tenant_id, p_table_id, 'submitted', 0)
   returning id into v_order_id;
@@ -363,9 +420,6 @@ begin
     )
     returning id into v_order_item_id;
 
-    v_total := v_total + ((item->>'quantity')::int * (item->>'unit_price_cents')::int);
-
-    -- insert modifiers if present
     if item ? 'modifiers' then
       for mod in select * from jsonb_array_elements(item->'modifiers')
       loop
@@ -376,12 +430,9 @@ begin
           mod->>'name',
           (mod->>'price_cents')::int
         );
-        v_total := v_total + ((item->>'quantity')::int * (mod->>'price_cents')::int);
       end loop;
     end if;
   end loop;
-
-  update orders set total_cents = v_total where id = v_order_id;
 
   return v_order_id;
 end;
@@ -409,25 +460,6 @@ create policy "staff select order_item_modifiers" on order_item_modifiers
     )
   );
 
--- Staff insert policies (for staff placing orders on behalf of tables)
-drop policy if exists "staff insert orders" on orders;
-create policy "staff insert orders" on orders
-  for insert with check (
-    exists (select 1 from staff where staff.tenant_id = tenant_id and staff.auth_user_id = (select auth.uid()))
-  );
-
-drop policy if exists "staff insert order_items" on order_items;
-create policy "staff insert order_items" on order_items
-  for insert with check (
-    exists (select 1 from orders where orders.id = order_id)
-  );
-
-drop policy if exists "staff insert order_item_modifiers" on order_item_modifiers;
-create policy "staff insert order_item_modifiers" on order_item_modifiers
-  for insert with check (
-    exists (select 1 from order_items where order_items.id = order_item_id)
-  );
-
 -- Staff order RPC: creates orders directly as confirmed (skips waiter confirmation)
 create or replace function create_staff_order(
   p_tenant_id uuid,
@@ -435,12 +467,11 @@ create or replace function create_staff_order(
   p_items jsonb
 ) returns uuid
   language plpgsql
-  security definer
+  security invoker
   set search_path = 'public'
 as $$
 declare
   v_order_id uuid;
-  v_total int := 0;
   item jsonb;
   v_order_item_id uuid;
   mod jsonb;
@@ -461,8 +492,6 @@ begin
     )
     returning id into v_order_item_id;
 
-    v_total := v_total + ((item->>'quantity')::int * (item->>'unit_price_cents')::int);
-
     if item ? 'modifiers' then
       for mod in select * from jsonb_array_elements(item->'modifiers')
       loop
@@ -473,12 +502,9 @@ begin
           mod->>'name',
           (mod->>'price_cents')::int
         );
-        v_total := v_total + ((item->>'quantity')::int * (mod->>'price_cents')::int);
       end loop;
     end if;
   end loop;
-
-  update orders set total_cents = v_total where id = v_order_id;
 
   return v_order_id;
 end;
@@ -517,8 +543,9 @@ drop policy if exists "staff can update orders for their tenant" on orders;
 drop policy if exists "order_items insert with valid order" on order_items;
 
 -- Properly manage function EXECUTE grants
--- In Postgres, EXECUTE is granted to PUBLIC by default, so revoking from 'anon'
--- is not enough (anon inherits from PUBLIC). We revoke from PUBLIC and grant selectively.
+-- Trigger functions are SECURITY DEFINER but NOT RPC-callable (EXECUTE revoked).
+revoke execute on function public.check_order_rate_limit from public, anon, authenticated;
+revoke execute on function public.update_order_total from public, anon, authenticated;
 revoke execute on function public.create_order from public;
 revoke execute on function public.create_staff_order from public;
 revoke execute on function public.transition_order_status from public;

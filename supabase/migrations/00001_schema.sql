@@ -294,55 +294,58 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Function: create_order (single transaction)
+-- Trigger: rate limit orders per table
+create or replace function check_order_rate_limit() returns trigger
+  language plpgsql security definer set search_path = 'public'
+as $$ begin
+  if exists (select 1 from staff where staff.auth_user_id = (select auth.uid())) then return new; end if;
+  if (select count(*) from orders where table_id = new.table_id and created_at > now() - interval '10 minutes') >= 5 then
+    raise exception 'Troppi ordini da questo tavolo. Attendi qualche minuto.';
+  end if;
+  return new;
+end; $$;
+
+create or replace function update_order_total() returns trigger
+  language plpgsql security definer set search_path = 'public'
+as $$ declare v uuid; begin
+  v := case when TG_TABLE_NAME = 'order_items' then new.order_id else (select order_id from order_items where id = new.order_item_id) end;
+  update orders set total_cents = (select coalesce(sum(item_total+mod_total),0) from (select oi.unit_price_cents*oi.quantity as item_total, coalesce((select sum(oim.price_cents*oi.quantity) from order_item_modifiers oim where oim.order_item_id=oi.id),0) as mod_total from order_items oi where oi.order_id=v) t) where id=v;
+  return new;
+end; $$;
+
+create trigger trg_check_order_rate_limit before insert on orders for each row execute function check_order_rate_limit();
+create trigger trg_update_order_total_on_order_items after insert on order_items for each row execute function update_order_total();
+create trigger trg_update_order_total_on_order_item_modifiers after insert on order_item_modifiers for each row execute function update_order_total();
+
+revoke execute on function check_order_rate_limit from public, anon, authenticated;
+revoke execute on function update_order_total from public, anon, authenticated;
+
+-- Function: create_order (single transaction, SECURITY INVOKER — RLS handles auth)
 
 create or replace function create_order(
   p_tenant_id uuid,
   p_table_id uuid,
   p_items jsonb
-) returns uuid as $$
+) returns uuid
+  language plpgsql security invoker set search_path = 'public'
+as $$
 declare
   v_order_id uuid;
-  v_total int := 0;
-  item jsonb;
-  v_order_item_id uuid;
-  mod jsonb;
+  item jsonb; v_order_item_id uuid; mod jsonb;
 begin
   insert into orders (tenant_id, table_id, status, total_cents)
-  values (p_tenant_id, p_table_id, 'submitted', 0)
-  returning id into v_order_id;
-
-  for item in select * from jsonb_array_elements(p_items)
-  loop
+  values (p_tenant_id, p_table_id, 'submitted', 0) returning id into v_order_id;
+  for item in select * from jsonb_array_elements(p_items) loop
     insert into order_items (order_id, menu_item_id, quantity, notes, unit_price_cents)
-    values (
-      v_order_id,
-      (item->>'menu_item_id')::uuid,
-      (item->>'quantity')::int,
-      item->>'notes',
-      (item->>'unit_price_cents')::int
-    )
+    values (v_order_id, (item->>'menu_item_id')::uuid, (item->>'quantity')::int, item->>'notes', (item->>'unit_price_cents')::int)
     returning id into v_order_item_id;
-
-    v_total := v_total + ((item->>'quantity')::int * (item->>'unit_price_cents')::int);
-
     if item ? 'modifiers' then
-      for mod in select * from jsonb_array_elements(item->'modifiers')
-      loop
+      for mod in select * from jsonb_array_elements(item->'modifiers') loop
         insert into order_item_modifiers (order_item_id, modifier_id, name, price_cents)
-        values (
-          v_order_item_id,
-          (mod->>'id')::uuid,
-          mod->>'name',
-          (mod->>'price_cents')::int
-        );
-        v_total := v_total + ((item->>'quantity')::int * (mod->>'price_cents')::int);
+        values (v_order_item_id, (mod->>'id')::uuid, mod->>'name', (mod->>'price_cents')::int);
       end loop;
     end if;
   end loop;
-
-  update orders set total_cents = v_total where id = v_order_id;
-
   return v_order_id;
 end;
-$$ language plpgsql security definer;
+$$;
