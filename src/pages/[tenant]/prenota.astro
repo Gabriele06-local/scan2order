@@ -1,0 +1,38 @@
+---
+import Layout from '../../components/astro/Layout.astro';
+import Prenota from '../../components/svelte/Prenota.svelte';
+import LangToggle from '../../components/svelte/LangToggle.svelte';
+import { supabase } from '../../lib/supabase';
+
+const { tenant } = Astro.params;
+if (!tenant) return Astro.redirect('/');
+
+const { data: ten } = await supabase.from('tenants').select('id, name').eq('slug', tenant).single();
+if (!ten) return Astro.redirect('/');
+
+const tenantId = (ten as any).id;
+const tenantName = (ten as any).name;
+
+const { data: categories } = await supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order');
+const { data: items } = await supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true);
+const { data: mods } = await supabase
+  .from('item_modifiers').select('*').eq('tenant_id', tenantId).eq('available', true).order('sort_order');
+const { data: t } = await supabase.from('tenants').select('operating_hours').eq('id', tenantId).single();
+---
+
+<Layout hideHeader={true}>
+  <main class="max-w-lg mx-auto p-4 pb-32">
+    <div class="flex justify-end mb-2">
+      <LangToggle client:load />
+    </div>
+    <Prenota
+      client:load
+      tenantId={tenantId}
+      tenantName={tenantName}
+      categories={categories ?? []}
+      allItems={items ?? []}
+      modifiers={mods ?? []}
+      operatingHours={(t as any)?.operating_hours ?? {}}
+    />
+  </main>
+</Layout>

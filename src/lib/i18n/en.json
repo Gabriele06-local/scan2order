@@ -12,7 +12,9 @@
     "error": "Error",
     "no_results": "No results",
     "search": "Search",
-    "back": "Back"
+    "back": "Back",
+    "refresh": "Refresh",
+    "remove": "Remove"
   },
   "nav": {
     "order": "Order",
@@ -20,7 +22,8 @@
     "admin": "Administration",
     "waiter": "Waiter Dashboard",
     "kitchen": "Kitchen Dashboard",
-    "login": "Staff Login"
+    "login": "Staff Login",
+    "reservations": "Reservations"
   },
   "staff_login": {
     "title": "Staff Login",
@@ -193,5 +196,35 @@
     "friday": "Friday",
     "saturday": "Saturday",
     "sunday": "Sunday"
+  },
+  "reservations": {
+    "book_title": "Book a Table",
+    "guest_name": "Full Name",
+    "email": "Email (optional)",
+    "phone": "Phone (optional)",
+    "date": "Date",
+    "time": "Time",
+    "guests": "Guests",
+    "notes": "Notes (optional)",
+    "choose_menu": "Choose from Menu →",
+    "preview_title": "What would you like to order?",
+    "skip_menu": "Or just book a table without ordering",
+    "book_only": "Book Only",
+    "submit": "Confirm Reservation",
+    "total": "Total",
+    "confirmed": "Reservation Confirmed!",
+    "confirm_msg": "Thank you {name}. We'll see you on {date} at {time}.",
+    "all_reservations": "All",
+    "no_reservations": "No reservations",
+    "pre_order": "Pre-order",
+    "seat_guest": "Seat Guest (create order)",
+    "seat_table": "Mark as Arrived",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "no_show": "No Show",
+    "status_pending": "Pending",
+    "status_confirmed": "Arrived",
+    "status_cancelled": "Cancelled",
+    "status_no_show": "No Show"
   }
 }

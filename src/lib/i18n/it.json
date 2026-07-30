@@ -12,7 +12,9 @@
     "error": "Errore",
     "no_results": "Nessun risultato",
     "search": "Cerca",
-    "back": "Indietro"
+    "back": "Indietro",
+    "refresh": "Aggiorna",
+    "remove": "Rimuovi"
   },
   "nav": {
     "order": "Ordina",
@@ -20,7 +22,8 @@
     "admin": "Amministrazione",
     "waiter": "Dashboard Cameriere",
     "kitchen": "Dashboard Cucina",
-    "login": "Accedi Staff"
+    "login": "Accedi Staff",
+    "reservations": "Prenotazioni"
   },
   "staff_login": {
     "title": "Accedi all'area staff",
@@ -197,5 +200,35 @@
     "friday": "Venerdì",
     "saturday": "Sabato",
     "sunday": "Domenica"
+  },
+  "reservations": {
+    "book_title": "Prenota un tavolo",
+    "guest_name": "Nome e cognome",
+    "email": "Email (opzionale)",
+    "phone": "Telefono (opzionale)",
+    "date": "Data",
+    "time": "Ora",
+    "guests": "Numero ospiti",
+    "notes": "Note (opzionale)",
+    "choose_menu": "Scegli dal menù →",
+    "preview_title": "Cosa vuoi ordinare?",
+    "skip_menu": "Oppure prenota solo il tavolo senza ordinare",
+    "book_only": "Solo prenotazione",
+    "submit": "Conferma prenotazione",
+    "total": "Totale",
+    "confirmed": "Prenotazione confermata!",
+    "confirm_msg": "Grazie {name}. Ti aspettiamo il {date} alle {time}.",
+    "all_reservations": "Tutte",
+    "no_reservations": "Nessuna prenotazione",
+    "pre_order": "Pre-ordine",
+    "seat_guest": "Accogli cliente (crea ordine)",
+    "seat_table": "Segna arrivato",
+    "confirm": "Conferma",
+    "cancel": "Annulla",
+    "no_show": "No show",
+    "status_pending": "In attesa",
+    "status_confirmed": "Arrivato",
+    "status_cancelled": "Annullato",
+    "status_no_show": "No show"
   }
 }
